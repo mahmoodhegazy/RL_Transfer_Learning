@@ -1,6 +1,6 @@
 # Transfer Learning Investigation for RL Research Project
 
-Transfer learning in reinforcement learning offers exciting opportunities to improve sample efficiency and performance by leveraging knowledge gained in one environment to accelerate learning in another. Here's a comprehensive approach for implementing transfer learning investigations in your Taxi and Ant environments, with several novel ideas that could distinguish your research.
+Transfer learning in reinforcement learning offers exciting opportunities to improve sample efficiency and performance by leveraging knowledge gained in one environment to accelerate learning in another. We will implement a comprehensive approach for transfer learning investigations in Taxi and Ant environments, with several novel ideas that could distinguish our research.
 
 ## Core Implementation Approach
 
