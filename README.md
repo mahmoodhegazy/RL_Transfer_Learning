@@ -164,6 +164,7 @@ By incorporating these novel transfer learning approaches, your project will mov
 
 ## Repo Structure
 
+```
 rl-transfer-learning/
 ├── README.md
 ├── requirements.txt
@@ -252,3 +253,4 @@ rl-transfer-learning/
 └── notebooks/
 ├── analysis.ipynb
 └── visualizations.ipynb
+```
