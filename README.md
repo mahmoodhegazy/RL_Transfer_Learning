@@ -254,3 +254,86 @@ rl-transfer-learning/
 ├── analysis.ipynb
 └── visualizations.ipynb
 ```
+
+## Usage Example
+
+```
+# example_experiment.py
+from experiments.run_experiment import ExperimentRunner
+
+# Define experiment configuration
+experiment_config = {
+    'name': 'taxi_transfer_experiment',
+    'num_episodes': 500,
+    'eval_frequency': 10,
+    'eval_episodes': 5,
+
+    # Target environment configuration (full Taxi)
+    'target_env_config': {
+        'type': 'taxi',
+        'grid_size': 5,
+        'num_passengers': 1
+    },
+
+    # Agent configuration
+    'agent_config': {
+        'type': 'q_learning',
+        'learning_rate': 0.1,
+        'discount_factor': 0.99,
+        'exploration_rate': 0.1,
+        'exploration_decay': 0.995
+    },
+
+    # Transfer experiments to run
+    'transfer_configs': [
+        {
+            'name': 'simplified_to_full',
+            'source_env_config': {
+                'type': 'simplified_taxi',
+                'grid_size': 3,
+                'num_passengers': 1
+            },
+            'source_agent_config': {
+                'type': 'q_learning',
+                'learning_rate': 0.1,
+                'discount_factor': 0.99,
+                'exploration_rate': 0.1,
+                'exploration_decay': 0.995
+            },
+            'source_episodes': 300,
+            'mechanism_config': {
+                'type': 'parameter_transfer',
+                'transfer_weights': True,
+                'transfer_bias': True
+            }
+        },
+        {
+            'name': 'curriculum_learning',
+            'source_env_config': {
+                'type': 'simplified_taxi',
+                'grid_size': 3,
+                'num_passengers': 1,
+                'complexity_level': 0.5
+            },
+            'source_agent_config': {
+                'type': 'q_learning',
+                'learning_rate': 0.1,
+                'discount_factor': 0.99,
+                'exploration_rate': 0.1,
+                'exploration_decay': 0.995
+            },
+            'source_episodes': 300,
+            'mechanism_config': {
+                'type': 'progressive_complexity',
+                'complexity_levels': [0.5, 0.7, 0.9, 1.0],
+                'episodes_per_level': 100,
+                'performance_threshold': 0.9
+            }
+        }
+    ]
+}
+
+# Run the experiment
+runner = ExperimentRunner(experiment_config)
+results = runner.run()
+```
