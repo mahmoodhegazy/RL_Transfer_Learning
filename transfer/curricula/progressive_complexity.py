@@ -1,4 +1,3 @@
-# transfer/curricula/progressive_complexity.py
 class ProgressiveComplexityCurriculum:
     """Curriculum that progressively increases environment complexity."""
     
