@@ -1,0 +1,23 @@
+# Core dependencies
+numpy>=1.24.0
+torch>=2.3.0
+gymnasium>=0.29.1
+matplotlib>=3.7.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# MuJoCo for physical simulations
+mujoco>=2.2.0
+gymnasium[mujoco]>=0.29.1
+
+# Reinforcement learning frameworks
+stable-baselines3>=2.6.0
+
+# Optional dependencies for visualization and experiment tracking
+tensorboard>=2.12.0
+tqdm>=4.65.0
+
+# Development tools
+pytest>=7.3.0
+black>=23.3.0
+ruff>=0.0.262
