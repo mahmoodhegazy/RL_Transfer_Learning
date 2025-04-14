@@ -2,6 +2,7 @@ import numpy as np
 import pickle
 import os
 from agents.base_agent import BaseAgent
+import gym
 
 class QLearningAgent(BaseAgent):
     """Q-Learning agent implementation."""
@@ -41,11 +42,7 @@ class QLearningAgent(BaseAgent):
             # Discretize the state to use as a key in the dictionary-based Q-table
             if isinstance(state, np.ndarray):
                 # Discretize each dimension
-                discretized = tuple(np.digitize(
-                    s, np.linspace(low, high, self.discretization_bins)
-                ) for s, (low, high) in zip(state, zip(
-                    self.observation_space.low, self.observation_space.high
-                )))
+                discretized = tuple(state)
                 return discretized
             else:
                 return state
@@ -65,8 +62,14 @@ class QLearningAgent(BaseAgent):
             # If state not seen before, add it to Q-table with zeros
             if state_key not in self.q_table:
                 self.q_table[state_key] = np.zeros(self.action_space.n)
+            # Get all actions that have the maximum Q-value
+            q_values = self.q_table[state_key]
+            max_q = np.max(q_values)
+            best_actions = np.where(q_values == max_q)[0]
             
-            return np.argmax(self.q_table[state_key])
+            # Randomly choose among the best actions
+            return np.random.choice(best_actions)
+            
     
     def update(self, state, action, reward, next_state, done):
         """Update Q-values using the Q-learning update rule."""
@@ -157,6 +160,9 @@ class QLearningAgent(BaseAgent):
                 "min_exploration_rate": self.min_exploration_rate,
                 "training_steps": self.training_steps
             }
+        elif knowledge_type == "value_function":
+            # Return the Q-table as the value function
+            return {"value_function": self.q_table}
         else:
             raise ValueError(f"Unknown knowledge type: {knowledge_type}")
     

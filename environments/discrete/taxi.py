@@ -28,9 +28,8 @@ class TaxiEnv(BaseEnvironment):
         self.grid = np.zeros((self.grid_size, self.grid_size), dtype=int)
         
         # Generate passenger locations and destinations
-        self.passenger_locations = []
-        self.destination_locations = []
-        self._generate_locations()
+        self.passenger_locations = None
+        self.destination_locations = None
         
         # Define action space (North, South, East, West, Pickup, Dropoff)
         self.action_space = spaces.Discrete(6)
@@ -57,37 +56,49 @@ class TaxiEnv(BaseEnvironment):
         self.dropoff_reward = config.get("dropoff_reward", 20)
         self.fuel_penalty = config.get("fuel_penalty", -10)  # Penalty for running out of fuel
         self.illegal_action_penalty = config.get("illegal_action_penalty", -10)
-        
+
+    # Add this as a class variable
+    FIXED_LOCATIONS = [
+        (0, 0),  # R(ed)    - Top left
+        (0, 4),  # G(reen)  - Top right
+        (1, 2),  # Y(ellow) - Bottom left
+        # (4, 4)   # B(lue)   - Bottom right If this is enabled, learning is very noisy
+    ]
+
     def _generate_locations(self):
-        """Generate random passenger pickup and destination locations."""
-        all_locations = [(i, j) for i in range(self.grid_size) for j in range(self.grid_size)]
-        sampled_locations = np.random.choice(
-            len(all_locations), 
-            size=2 * self.num_passengers, 
-            replace=False
-        )
+        """Generate passenger pickup and destination locations from fixed locations."""
+        # Clear previous locations
+        self.passenger_locations = None
+        self.destination_locations = None
         
-        for i in range(self.num_passengers):
-            self.passenger_locations.append(all_locations[sampled_locations[i]])
-            self.destination_locations.append(all_locations[sampled_locations[i + self.num_passengers]])
-    
+        # For each passenger
+        for _ in range(self.num_passengers):
+            # Pick random pickup and dropoff locations from fixed points
+            pickup_idx = np.random.randint(len(self.FIXED_LOCATIONS))
+            dropoff_idx = np.random.randint(len(self.FIXED_LOCATIONS))
+            
+            # pickup_idx = 0
+            # dropoff_idx = 1
+            self.passenger_locations = self.FIXED_LOCATIONS[pickup_idx]
+            self.destination_locations = self.FIXED_LOCATIONS[dropoff_idx]     
+
     def reset(self):
         """Reset the environment to initial state."""
         # Reset passenger locations and destinations
-        self._generate_locations()
         
         # Reset taxi to random position
         taxi_row = np.random.randint(0, self.grid_size)
         taxi_col = np.random.randint(0, self.grid_size)
         
+        self._generate_locations()
         # Initialize passenger statuses (not picked up)
         passenger_statuses = [-1] * self.num_passengers
         
         # Flatten destination locations
-        flat_destinations = [loc[0] * self.grid_size + loc[1] for loc in self.destination_locations]
+        last_destination = self.destination_locations  # Gets last tuple (row, col)
         
         # Combine into state
-        self.state = [taxi_row, taxi_col] + passenger_statuses + flat_destinations
+        self.state = [taxi_row, taxi_col] + [self.passenger_locations[0], self.passenger_locations[1]] + [last_destination[0], last_destination[1]]  # taxi position + passenger statuses + destination locations
         
         # Reset fuel if using fuel constraints
         self.remaining_fuel = self.max_fuel
@@ -135,9 +146,9 @@ class TaxiEnv(BaseEnvironment):
                     self.state[2 + i] = 1  # Delivered
                     reward = self.dropoff_reward
                     break
-            else:
-                # No valid dropoff occurred
-                reward = self.illegal_action_penalty
+                else:
+                    # No valid dropoff occurred
+                    reward = self.illegal_action_penalty
         
         # Update taxi position
         self.state[0], self.state[1] = taxi_row, taxi_col
@@ -190,7 +201,7 @@ class TaxiEnv(BaseEnvironment):
     
     def _passenger_at_location(self, row, col):
         """Check if any passenger is at the given location."""
-        for i, loc in enumerate(self.passenger_locations):
+        for i, loc in enumerate([self.passenger_locations]):
             if loc[0] == row and loc[1] == col and self.state[2 + i] == -1:
                 return i
         return None

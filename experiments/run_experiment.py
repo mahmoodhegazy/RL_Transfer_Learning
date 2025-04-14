@@ -22,8 +22,9 @@ class ExperimentRunner:
         print(f"Starting experiment: {self.config['name']}")
         
         # Run baseline (learning from scratch)
+        print("Running baseline experiment...")
         self.results['baseline'] = self._run_baseline()
-        
+        print(f"Ran baseline for: {self.config['name']}")
         # Run transfer experiments
         for transfer_config in self.config['transfer_configs']:
             transfer_name = transfer_config['name']
@@ -94,21 +95,38 @@ class ExperimentRunner:
         }
         
         for episode in range(num_episodes):
-            # Training episode
-            state = env.reset()
+            # # Training episode
+            # state = env.reset()
+            # done = False
+            # episode_reward = 0
+            # steps = 0
+            
+            # while not done:
+            #     action = agent.select_action(state)
+            #     result = env.step(action)
+            #     next_state, reward, terminated, truncated, _ = result
+            #     agent.update(state, action, reward, next_state, done)
+            #     state = next_state
+            #     episode_reward += reward
+            #     steps += 1
+
+            #     done = terminated or truncated or steps >= 700
+            steps = 0
+            s = env.reset()
+            a = agent.select_action(s)
             done = False
             episode_reward = 0
-            steps = 0
-            
-            while not done:
-                action = agent.select_action(state)
-                next_state, reward, done, _ = env.step(action)
-                agent.update(state, action, reward, next_state, done)
-                
-                state = next_state
+            max_steps = 600
+
+            while not done and steps < max_steps:
+                s_prime, reward, terminated, truncated, _ = env.step(a)
+                done = terminated or truncated
+                a_prime = agent.select_action(s_prime)
+                agent.update(s, a, reward, s_prime, done)
+                s, a = s_prime, a_prime
                 episode_reward += reward
                 steps += 1
-            
+
             results['episode_rewards'].append(episode_reward)
             results['episode_lengths'].append(steps)
             
@@ -119,8 +137,19 @@ class ExperimentRunner:
                 
             # Log progress
             if episode % 10 == 0:
-                print(f"Episode {episode}/{num_episodes}, Reward: {episode_reward:.2f}")
-        
+                # Calculate average reward over last 10 episodes
+                last_10_avg = np.mean(results['episode_rewards'][-10:]) if len(results['episode_rewards']) >= 10 else np.mean(results['episode_rewards'])
+                print(f"Episode {episode}/{num_episodes}, Average Reward (last 10): {last_10_avg:.2f}")
+        # Plot results for this training session
+        plt.figure(figsize=(10, 6))
+        episodes = range(1, len(results['episode_rewards']) + 1)
+        plt.plot(episodes, results['episode_rewards'], label='Episode Rewards')
+        plt.xlabel('Episode')
+        plt.ylabel('Reward')
+        plt.title('Training Progress')
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend()
+        plt.show()
         return results
     
     def _evaluate_agent(self, agent, env, num_episodes):
@@ -134,12 +163,18 @@ class ExperimentRunner:
             state = env.reset()
             done = False
             episode_reward = 0
+            steps = 0
             
             while not done:
                 action = agent.select_action(state)
-                next_state, reward, done, _ = env.step(action)
-                episode_reward += reward
+                result = env.step(action)
+                next_state, reward, terminated, truncated, _ = result
+                # agent.update(state, action, reward, next_state, done)
                 state = next_state
+                episode_reward += reward
+                steps += 1
+
+                done = terminated or truncated or steps >= 700
                 
             total_rewards.append(episode_reward)
         
@@ -312,8 +347,14 @@ class ExperimentRunner:
         elif mechanism_type == 'feature_transfer':
             from transfer.mechanisms.feature_transfer import FeatureTransfer
             return FeatureTransfer(mechanism_config)
-        elif mechanism_type == 'policy_distillation':
-            from transfer.mechanisms.policy_distillation import PolicyDistillation
-            return PolicyDistillation(mechanism_config)
+        # elif mechanism_type == 'policy_distillation':
+        #     from transfer.mechanisms.policy_distillation import FeatureTransfer
+        #     return FeatureTransfer(mechanism_config)
+        elif mechanism_type == 'value_transfer':
+            from transfer.mechanisms.value_transfer import ValueTransfer
+            return ValueTransfer(mechanism_config)
+        elif mechanism_type == 'reward_shaping':
+            from transfer.mechanisms.reward_shaping import RewardShaping
+            return RewardShaping(mechanism_config)
         else:
             raise ValueError(f"Unknown transfer mechanism: {mechanism_type}")
