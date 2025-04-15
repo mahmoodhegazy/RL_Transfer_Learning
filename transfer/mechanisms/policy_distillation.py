@@ -1,146 +1,194 @@
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+import os
+import types
+from collections import deque
+import random
 
-class FeatureTransfer:
-    """Transfer learning by extracting and transferring feature representations."""
+class PolicyDistillation:
+    """Transfer learning by distilling policy knowledge from source to target agent."""
     
     def __init__(self, config):
         self.config = config
         # Configuration options:
-        # - layers_to_transfer: List of layer names or indices to transfer
-        # - freeze_transferred: Whether to freeze transferred layers
-        # - adaptation_method: How to adapt feature dimensions if needed
-        #   (e.g., "interpolate", "pad", "truncate")
-        # - fine_tuning_lr: Learning rate for fine-tuning if needed
+        # - temperature: Temperature parameter for distillation (higher = softer probabilities)
+        # - iterations: Number of distillation iterations
+        # - batch_size: Batch size for distillation
+        # - learning_rate: Learning rate for distillation
+        # - loss_type: Type of distillation loss ("kl", "mse")
+        # - collect_states: How many states to collect from source environment
+        # - buffer_size: Size of state buffer to use for distillation
         
         # Set default parameters
-        self.layers_to_transfer = config.get("layers_to_transfer", ["all"])
-        self.freeze_transferred = config.get("freeze_transferred", False)
-        self.adaptation_method = config.get("adaptation_method", "truncate")
-        self.fine_tuning_lr = config.get("fine_tuning_lr", 0.0001)
+        self.temperature = config.get("temperature", 1.0)
+        self.iterations = config.get("iterations", 1000)
+        self.batch_size = config.get("batch_size", 64)
+        self.learning_rate = config.get("learning_rate", 0.001)
+        self.loss_type = config.get("loss_type", "kl")
+        self.collect_states = config.get("collect_states", 5000)
+        self.buffer_size = config.get("buffer_size", 10000)
         
-        # Device for torch operations if needed
-        self.device = torch.device("cuda" if torch.cuda.is_available() and 
-                                   torch.cuda.is_available() else "cpu")
+        # Device for torch operations
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     def transfer(self, source_agent, target_agent):
-        """Transfer feature extraction layers from source to target agent."""
-        # Extract feature knowledge from source agent
-        knowledge = source_agent.extract_knowledge("feature_extractor")
+        """Transfer policy knowledge from source to target agent."""
+        # Check if the agents use neural networks for policy
+        if not (hasattr(source_agent, 'policy') and hasattr(target_agent, 'policy')):
+            print("Warning: Policy distillation requires source and target agents to have policy networks.")
+            # Fall back to direct parameter transfer if possible
+            if hasattr(source_agent, 'extract_knowledge') and hasattr(target_agent, 'initialize_from_knowledge'):
+                knowledge = source_agent.extract_knowledge("parameters")
+                target_agent.initialize_from_knowledge(knowledge)
+            return target_agent
         
-        # Process the knowledge if needed
-        processed_knowledge = self._process_knowledge(knowledge)
+        # Create state buffer
+        state_buffer = self._collect_states(source_agent)
         
-        # Initialize target agent with processed knowledge
-        target_agent.initialize_from_knowledge(processed_knowledge)
-        
-        # If we need to freeze transferred layers
-        if self.freeze_transferred and hasattr(target_agent, 'policy') and hasattr(target_agent.policy, 'requires_grad_'):
-            # For neural network agents
-            self._freeze_layers(target_agent)
+        # Perform policy distillation
+        self._distill_policy(source_agent, target_agent, state_buffer)
         
         return target_agent
     
-    def _process_knowledge(self, knowledge):
-        """Process the extracted feature knowledge before transfer."""
-        # Make a copy to avoid modifying the original
-        processed_knowledge = knowledge.copy()
+    def _collect_states(self, source_agent):
+        """Collect states from source environment for distillation."""
+        state_buffer = deque(maxlen=self.buffer_size)
+        env = source_agent.env
         
-        # If we need to adapt feature dimensions
-        if "actor_features" in knowledge and "critic_features" in knowledge:
-            # For actor-critic agents
-            if self.adaptation_method != "direct":
-                processed_knowledge = self._adapt_network_features(processed_knowledge)
+        print(f"Collecting {self.collect_states} states for policy distillation...")
         
-        # For specific layer selection
-        if self.layers_to_transfer != ["all"]:
-            processed_knowledge = self._select_layers(processed_knowledge)
+        # Set source agent to evaluation mode
+        source_agent.training = False
         
-        return processed_knowledge
-    
-    def _adapt_network_features(self, knowledge):
-        """Adapt feature dimensions if source and target have different shapes."""
-        # This could include padding, truncation, or interpolation
-        # of neural network weights
+        states_collected = 0
+        episode_count = 0
         
-        for key in ["actor_features", "critic_features"]:
-            if key in knowledge:
-                for layer_name, layer_params in knowledge[key].items():
-                    if isinstance(layer_params, torch.Tensor):
-                        # Apply adaptation based on configuration
-                        if self.adaptation_method == "truncate":
-                            # Truncate to smaller dimension (may lose information)
-                            target_shape = self.config.get(f"{key}_shapes", {}).get(layer_name)
-                            if target_shape and list(layer_params.shape) != target_shape:
-                                # Truncate to target shape
-                                slices = tuple(slice(0, min(s, t)) for s, t in zip(layer_params.shape, target_shape))
-                                knowledge[key][layer_name] = layer_params[slices]
-                                
-                        elif self.adaptation_method == "pad":
-                            # Pad with zeros to larger dimension
-                            target_shape = self.config.get(f"{key}_shapes", {}).get(layer_name)
-                            if target_shape and list(layer_params.shape) != target_shape:
-                                # Create new tensor of target shape
-                                new_params = torch.zeros(target_shape, device=layer_params.device)
-                                # Copy values from original tensor
-                                slices = tuple(slice(0, min(s, t)) for s, t in zip(layer_params.shape, target_shape))
-                                new_params[slices] = layer_params[slices]
-                                knowledge[key][layer_name] = new_params
-                                
-                        elif self.adaptation_method == "interpolate":
-                            # Only for 2D weight matrices
-                            if len(layer_params.shape) == 2:
-                                target_shape = self.config.get(f"{key}_shapes", {}).get(layer_name)
-                                if target_shape and list(layer_params.shape) != target_shape:
-                                    # Use interpolation for 2D weights
-                                    # Reshape to 4D for torch's interpolate function
-                                    reshaped = layer_params.unsqueeze(0).unsqueeze(0)
-                                    interpolated = torch.nn.functional.interpolate(
-                                        reshaped, 
-                                        size=target_shape,
-                                        mode='bilinear',
-                                        align_corners=True
-                                    )
-                                    knowledge[key][layer_name] = interpolated.squeeze(0).squeeze(0)
-        
-        return knowledge
-    
-    def _select_layers(self, knowledge):
-        """Select specific layers to transfer."""
-        selected_knowledge = {}
-        
-        for key in knowledge:
-            # Skip non-feature keys
-            if key in ["actor_features", "critic_features"]:
-                selected_knowledge[key] = {}
+        while states_collected < self.collect_states:
+            # Reset environment
+            state = env.reset()[0] if isinstance(env.reset(), tuple) else env.reset()
+            done = False
+            truncated = False
+            
+            while not (done or truncated) and states_collected < self.collect_states:
+                # Add state to buffer
+                state_buffer.append(state)
+                states_collected += 1
                 
-                for layer_name, layer_params in knowledge[key].items():
-                    # Check if this layer should be transferred
-                    layer_id = layer_name.split('.')[0] if '.' in layer_name else layer_name
-                    if layer_id in self.layers_to_transfer or "all" in self.layers_to_transfer:
-                        selected_knowledge[key][layer_name] = layer_params
-            else:
-                # Keep other keys (like configuration)
-                selected_knowledge[key] = knowledge[key]
+                # Select action using source policy
+                action = source_agent.select_action(state)
+                
+                # Take step in environment
+                if hasattr(env, 'unwrapped') and hasattr(env.unwrapped, 'spec') and hasattr(env.unwrapped.spec, 'version') and env.unwrapped.spec.version.startswith('0.'):
+                    # Old OpenAI Gym format
+                    next_state, _, done, _ = env.step(action)
+                    truncated = False
+                else:
+                    # New Gymnasium format
+                    next_state, _, done, truncated, _ = env.step(action)
+                
+                state = next_state
+            
+            episode_count += 1
+            if episode_count % 10 == 0:
+                print(f"  Collected {states_collected} states from {episode_count} episodes")
         
-        return selected_knowledge
+        # Set source agent back to training mode
+        source_agent.training = True
+        
+        print(f"Collected {len(state_buffer)} states for distillation")
+        return list(state_buffer)
     
-    def _freeze_layers(self, agent):
-        """Freeze the transferred layers to prevent updates during training."""
-        # This only works for PyTorch-based agents
-        if not hasattr(agent, 'policy'):
-            return
+    def _distill_policy(self, source_agent, target_agent, state_buffer):
+        """Distill policy from source to target agent."""
+        print(f"Distilling policy over {self.iterations} iterations...")
         
-        # Freeze actor features if present
-        if hasattr(agent.policy, 'layers'):
-            for name, param in agent.policy.layers.named_parameters():
-                layer_id = name.split('.')[0] if '.' in name else name
-                if layer_id in self.layers_to_transfer or "all" in self.layers_to_transfer:
-                    param.requires_grad = False
+        # Set agents to evaluation mode during distillation
+        source_agent.training = False
+        target_agent.training = True
         
-        # Freeze critic features if present
-        if hasattr(agent, 'critic') and hasattr(agent.critic, 'layers'):
-            for name, param in agent.critic.layers.named_parameters():
-                layer_id = name.split('.')[0] if '.' in name else name
-                if layer_id in self.layers_to_transfer or "all" in self.layers_to_transfer:
-                    param.requires_grad = False
+        # Get optimizer for target policy
+        optimizer = optim.Adam(target_agent.policy.parameters(), lr=self.learning_rate)
+        
+        # Distillation loop
+        for iteration in range(self.iterations):
+            # Sample batch of states
+            if len(state_buffer) <= self.batch_size:
+                batch_states = state_buffer
+            else:
+                batch_indices = np.random.choice(len(state_buffer), self.batch_size, replace=False)
+                batch_states = [state_buffer[i] for i in batch_indices]
+            
+            # Convert states to tensor
+            states_tensor = torch.FloatTensor(np.array(batch_states)).to(self.device)
+            
+            # Get source policy outputs
+            with torch.no_grad():
+                if hasattr(source_agent.policy, 'sample_action'):
+                    # For stochastic policies like in Actor-Critic
+                    source_actions, _ = source_agent.policy.sample_action(states_tensor)
+                    # For policy distillation we want means, not samples
+                    source_means, source_log_stds = source_agent.policy(states_tensor)
+                elif hasattr(source_agent.policy, 'forward'):
+                    # Simpler case for deterministic policies
+                    source_means = source_agent.policy(states_tensor)
+                    source_log_stds = None
+                else:
+                    print("Warning: Source policy doesn't have expected methods. Distillation may not work.")
+                    break
+            
+            # Get target policy outputs
+            if hasattr(target_agent.policy, 'sample_action'):
+                target_means, target_log_stds = target_agent.policy(states_tensor)
+            elif hasattr(target_agent.policy, 'forward'):
+                target_means = target_agent.policy(states_tensor)
+                target_log_stds = None
+            else:
+                print("Warning: Target policy doesn't have expected methods. Distillation may not work.")
+                break
+            
+            # Calculate distillation loss
+            if self.loss_type == "mse":
+                # Simple mean squared error between means
+                loss = F.mse_loss(target_means, source_means)
+                
+                # Add log_std loss if available
+                if source_log_stds is not None and target_log_stds is not None:
+                    loss += F.mse_loss(target_log_stds, source_log_stds)
+                
+            elif self.loss_type == "kl":
+                # KL divergence between distributions (for stochastic policies)
+                if source_log_stds is not None and target_log_stds is not None:
+                    source_std = torch.exp(source_log_stds)
+                    target_std = torch.exp(target_log_stds)
+                    
+                    # KL divergence between two Gaussians
+                    kl_div = (source_log_stds - target_log_stds + 
+                             (target_std.pow(2) + (target_means - source_means).pow(2)) / 
+                             (2.0 * source_std.pow(2)) - 0.5)
+                    
+                    loss = kl_div.mean()
+                else:
+                    # Fall back to MSE if log_stds not available
+                    loss = F.mse_loss(target_means, source_means)
+            
+            else:
+                # Default to MSE
+                loss = F.mse_loss(target_means, source_means)
+            
+            # Update target policy
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            # Log progress
+            if (iteration + 1) % (self.iterations // 10) == 0:
+                print(f"  Distillation iteration {iteration + 1}/{self.iterations}, Loss: {loss.item():.6f}")
+        
+        # Set agents back to original modes
+        source_agent.training = False
+        target_agent.training = True
+        
+        print("Policy distillation complete.")
