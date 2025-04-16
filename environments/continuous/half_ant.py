@@ -1,5 +1,6 @@
 import numpy as np
 from environments.continuous.ant import AntEnv
+from gymnasium import spaces
 
 class HalfAntEnv(AntEnv):
     """

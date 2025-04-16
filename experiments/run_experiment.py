@@ -5,6 +5,22 @@ import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
 
+class NumpyEncoder(json.JSONEncoder):
+    """Custom encoder for NumPy data types."""
+    def default(self, obj):
+        import numpy as np
+        if isinstance(obj, (np.integer, np.int_, np.intc, np.intp, np.int8,
+                           np.int16, np.int32, np.int64, np.uint8,
+                           np.uint16, np.uint32, np.uint64)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float_, np.float16, np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.bool_, np.bool)):
+            return bool(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
 class ExperimentRunner:
     """Run transfer learning experiments and collect results."""
     
@@ -95,35 +111,27 @@ class ExperimentRunner:
         }
         
         for episode in range(num_episodes):
-            # # Training episode
-            # state = env.reset()
-            # done = False
-            # episode_reward = 0
-            # steps = 0
-            
-            # while not done:
-            #     action = agent.select_action(state)
-            #     result = env.step(action)
-            #     next_state, reward, terminated, truncated, _ = result
-            #     agent.update(state, action, reward, next_state, done)
-            #     state = next_state
-            #     episode_reward += reward
-            #     steps += 1
-
-            #     done = terminated or truncated or steps >= 700
-            steps = 0
-            s = env.reset()
-            a = agent.select_action(s)
+            # Training episode
+            state = env.reset() if not isinstance(env.reset(), tuple) else env.reset()[0]
             done = False
             episode_reward = 0
-            max_steps = 600
-
-            while not done and steps < max_steps:
-                s_prime, reward, terminated, truncated, _ = env.step(a)
-                done = terminated or truncated
-                a_prime = agent.select_action(s_prime)
-                agent.update(s, a, reward, s_prime, done)
-                s, a = s_prime, a_prime
+            steps = 0
+            
+            while not done:
+                action = agent.select_action(state)
+                
+                # Handle both gym and gymnasium API formats
+                try:
+                    # Try new Gymnasium API (5 return values)
+                    next_state, reward, terminated, truncated, info = env.step(action)
+                    done = terminated or truncated
+                except ValueError:
+                    # Fall back to old Gym API (4 return values)
+                    next_state, reward, done, info = env.step(action)
+                
+                agent.update(state, action, reward, next_state, done)
+                
+                state = next_state
                 episode_reward += reward
                 steps += 1
 
@@ -160,17 +168,23 @@ class ExperimentRunner:
         
         total_rewards = []
         for _ in range(num_episodes):
-            state = env.reset()
+            state = env.reset() if not isinstance(env.reset(), tuple) else env.reset()[0]
             done = False
             episode_reward = 0
             steps = 0
             
             while not done:
                 action = agent.select_action(state)
-                result = env.step(action)
-                next_state, reward, terminated, truncated, _ = result
-                # agent.update(state, action, reward, next_state, done)
-                state = next_state
+                
+                # Handle both gym and gymnasium API formats
+                try:
+                    # Try new Gymnasium API
+                    next_state, reward, terminated, truncated, _ = env.step(action)
+                    done = terminated or truncated
+                except ValueError:
+                    # Fall back to old Gym API
+                    next_state, reward, done, _ = env.step(action)
+                    
                 episode_reward += reward
                 steps += 1
 
@@ -185,6 +199,7 @@ class ExperimentRunner:
     
     def _evaluate_transfer(self):
         """Evaluate transfer learning performance."""
+        import numpy as np
         from evaluation.metrics import TransferMetrics
         
         baseline_rewards = self.results['baseline']['episode_rewards']
@@ -192,16 +207,32 @@ class ExperimentRunner:
         for transfer_name, transfer_results in self.results.items():
             if transfer_name == 'baseline':
                 continue
-                
+                    
             transfer_rewards = transfer_results['target_results']['episode_rewards']
             
             # Calculate transfer metrics
+            jumpstart = TransferMetrics.jumpstart_performance(baseline_rewards, transfer_rewards)
+            asymptotic = TransferMetrics.asymptotic_performance(baseline_rewards, transfer_rewards)
+            transfer_ratio = TransferMetrics.transfer_ratio(baseline_rewards, transfer_rewards)
+            significance = TransferMetrics.statistical_significance(baseline_rewards, transfer_rewards)
+            negative_transfer = TransferMetrics.detect_negative_transfer(baseline_rewards, transfer_rewards)
+            
+            # Convert any NumPy values to native Python types
             metrics = {
-                'jumpstart': TransferMetrics.jumpstart_performance(baseline_rewards, transfer_rewards),
-                'asymptotic': TransferMetrics.asymptotic_performance(baseline_rewards, transfer_rewards),
-                'transfer_ratio': TransferMetrics.transfer_ratio(baseline_rewards, transfer_rewards),
-                'significance': TransferMetrics.statistical_significance(baseline_rewards, transfer_rewards),
-                'negative_transfer': TransferMetrics.detect_negative_transfer(baseline_rewards, transfer_rewards)
+                'jumpstart': float(jumpstart),
+                'asymptotic': float(asymptotic),
+                'transfer_ratio': float(transfer_ratio),
+                'significance': {
+                    'u_statistic': float(significance['u_statistic']),
+                    'p_value': float(significance['p_value']),
+                    'significant': bool(significance['significant'])
+                },
+                'negative_transfer': {
+                    'negative_transfer_detected': bool(negative_transfer['negative_transfer_detected']),
+                    'early_baseline_performance': float(negative_transfer['early_baseline_performance']),
+                    'early_transfer_performance': float(negative_transfer['early_transfer_performance']),
+                    'relative_performance': float(negative_transfer['relative_performance'])
+                }
             }
             
             # Calculate time to threshold if possible
@@ -210,9 +241,9 @@ class ExperimentRunner:
                 baseline_rewards, transfer_rewards, target_perf
             )
             metrics['time_to_threshold'] = {
-                'baseline': baseline_time,
-                'transfer': transfer_time,
-                'improvement': baseline_time - transfer_time
+                'baseline': int(baseline_time),
+                'transfer': int(transfer_time),
+                'improvement': int(baseline_time - transfer_time)
             }
             
             # Store metrics
@@ -220,6 +251,9 @@ class ExperimentRunner:
     
     def _save_results(self):
         """Save experiment results."""
+        import numpy as np
+        import json
+        
         experiment_dir = os.path.join(
             self.output_dir, 
             f"{self.config['name']}_{self.timestamp}"
@@ -228,7 +262,7 @@ class ExperimentRunner:
         
         # Save config
         with open(os.path.join(experiment_dir, 'config.json'), 'w') as f:
-            json.dump(self.config, f, indent=4)
+            json.dump(self.config, f, indent=4, cls=NumpyEncoder)
         
         # Save metrics summary
         metrics_summary = {}
@@ -246,7 +280,7 @@ class ExperimentRunner:
                 metrics_summary[transfer_name]['is_negative'] = results['metrics']['negative_transfer']['negative_transfer_detected']
         
         with open(os.path.join(experiment_dir, 'metrics_summary.json'), 'w') as f:
-            json.dump(metrics_summary, f, indent=4)
+            json.dump(metrics_summary, f, indent=4, cls=NumpyEncoder)
         
         # Generate learning curve plot
         self._plot_learning_curves(experiment_dir)
@@ -254,11 +288,12 @@ class ExperimentRunner:
         # Save full results
         with open(os.path.join(experiment_dir, 'full_results.json'), 'w') as f:
             # Convert numpy arrays to lists for JSON serialization
-            serializable_results = self._make_serializable(self.results)
-            json.dump(serializable_results, f, indent=4)
+            json.dump(self.results, f, indent=4, cls=NumpyEncoder)
     
     def _make_serializable(self, obj):
         """Convert numpy values to serializable types."""
+        import numpy as np  # Add import here to ensure NumPy is available
+        
         if isinstance(obj, dict):
             return {k: self._make_serializable(v) for k, v in obj.items()}
         elif isinstance(obj, list):
@@ -269,6 +304,8 @@ class ExperimentRunner:
             return int(obj)
         elif isinstance(obj, np.floating):
             return float(obj)
+        elif isinstance(obj, np.bool_):  # Add this line to handle NumPy boolean values
+            return bool(obj)
         else:
             return obj
     
@@ -308,12 +345,27 @@ class ExperimentRunner:
         elif env_type == 'simplified_taxi':
             from environments.discrete.simplified_taxi import SimplifiedTaxiEnv
             return SimplifiedTaxiEnv(env_config)
+        elif env_type == 'single_passenger_taxi':
+            from environments.discrete.single_passenger_taxi import SinglePassengerTaxiEnv
+            return SinglePassengerTaxiEnv(env_config)
+        elif env_type == 'fixed_route_taxi':
+            from environments.discrete.fixed_route_taxi import FixedRouteTaxiEnv
+            return FixedRouteTaxiEnv(env_config)
         elif env_type == 'ant':
             from environments.continuous.ant import AntEnv
             return AntEnv(env_config)
         elif env_type == 'reduced_dof_ant':
             from environments.continuous.reduced_dof_ant import ReducedDOFAntEnv
             return ReducedDOFAntEnv(env_config)
+        elif env_type == 'planar_ant':
+            from environments.continuous.planar_ant import PlanarAntEnv
+            return PlanarAntEnv(env_config)
+        elif env_type == 'simplified_physics_ant':
+            from environments.continuous.simplified_physics_ant import SimplifiedPhysicsAntEnv
+            return SimplifiedPhysicsAntEnv(env_config)
+        elif env_type == 'half_ant':
+            from environments.continuous.half_ant import HalfAntEnv
+            return HalfAntEnv(env_config)
         else:
             raise ValueError(f"Unknown environment type: {env_type}")
     

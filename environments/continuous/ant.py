@@ -122,82 +122,92 @@ class AntEnv(BaseEnvironment):
         
         return forward_reward - control_cost + goal_reward
     
-def get_state_representation(self):
-    """Get the state representation suitable for transfer learning.
-    
-    Extracts and normalizes key features from the observation space that
-    are most relevant for transfer learning between different Ant variants.
-    
-    Returns:
-        numpy.ndarray: Normalized state representation with key features
-    """
-    # Get the raw observation from the environment
-    raw_obs = self.base_env._get_obs()
-    
-    # Extract the key components based on the standard Ant observation structure
-    # Typically, the Ant observation space includes:
-    # - Position [0:3]
-    # - Orientation (quaternion) [3:7]
-    # - Joint positions [7:15]
-    # - Joint velocities [15:23] 
-    # - External forces (optional)
-    
-    # Check if we have a proper observation
-    if raw_obs is None or len(raw_obs) < 15:
-        # Fallback to a minimal representation if observation is incomplete
-        return np.zeros(10)
-    
-    # Extract position (x, y, z)
-    position = raw_obs[0:3]
-    
-    # Extract orientation (quaternion)
-    orientation = raw_obs[3:7]
-    
-    # Extract joint positions and velocities
-    # Focus on the most important joints for locomotion
-    joint_positions = raw_obs[7:15]
-    joint_velocities = raw_obs[15:23] if len(raw_obs) >= 23 else np.zeros(8)
-    
-    # Normalize position
-    # Use a reasonable range for the Ant's movement (typically within [-10, 10])
-    normalized_position = position / 10.0
-    
-    # Quaternions are already normalized by definition
-    normalized_orientation = orientation
-    
-    # Normalize joint positions and velocities
-    # Joint positions in the Ant are typically in the range [-1, 1]
-    normalized_joint_positions = joint_positions / 1.0
-    
-    # Joint velocities can vary more, typically in range [-10, 10]
-    normalized_joint_velocities = joint_velocities / 10.0
-    
-    # Calculate additional features that may help with transfer
-    forward_velocity = np.array([raw_obs[13]])  # Typically the x-velocity component
-    normalized_forward_velocity = forward_velocity / 5.0  # Normalize to reasonable range
-    
-    # Compute body height (z-position) as a separate feature
-    # This is often critical for stable locomotion
-    body_height = np.array([position[2]])
-    normalized_body_height = body_height / 1.0  # Typical height range
-    
-    # Combine all normalized features
-    # Focus on the most transferable aspects, which are typically:
-    # - Normalized x-y position (ignore z for planar movement)
-    # - Orientation (quaternion)
-    # - Joint positions
-    # - Forward velocity
-    # - Body height
-    transferable_state = np.concatenate([
-        normalized_position[0:2],  # x-y position (planar movement)
-        normalized_orientation,    # orientation
-        normalized_joint_positions,  # joint positions
-        normalized_forward_velocity,  # forward velocity
-        normalized_body_height     # body height
-    ])
-    
-    return transferable_state
-    
+    def create_state_mapping(self, source_agent, target_agent):
+        """Create mapping between source and target state spaces."""
+        # Extract dimensions from both observation spaces
+        source_dims = source_agent.obs_dim
+        target_dims = target_agent.obs_dim
+        
+        # Initialize mapping dictionary
+        mapping = {}
+        
+        # For Ant environments specifically, we need to map the observation
+        # components based on their semantic meaning
+        
+        # Define semantic segments of the observation vector
+        segments = {
+            'position': {'source_range': (0, min(3, source_dims)), 
+                        'target_range': (0, min(3, target_dims))},
+                        
+            'orientation': {'source_range': (3, min(7, source_dims)), 
+                        'target_range': (3, min(7, target_dims))},
+                        
+            'joint_positions': {'source_range': (7, min(15, source_dims)), 
+                            'target_range': (7, min(15, target_dims))},
+                            
+            'velocities': {'source_range': (15, min(23, source_dims)), 
+                        'target_range': (15, min(23, target_dims))}
+        }
+        
+        # Create mapping for each segment
+        for segment, ranges in segments.items():
+            s_start, s_end = ranges['source_range']
+            t_start, t_end = ranges['target_range']
+            
+            # Skip if source doesn't have this segment
+            if s_start >= source_dims:
+                continue
+                
+            # Map available dimensions
+            shared_length = min(s_end - s_start, t_end - t_start)
+            for i in range(shared_length):
+                mapping[s_start + i] = t_start + i
+        
+        return mapping
+        
+    def get_state_representation(self):
+        """Get state representation suitable for transfer learning."""
+        # Get the current observation
+        if hasattr(self.base_env, 'unwrapped') and hasattr(self.base_env.unwrapped, '_get_obs'):
+            raw_obs = self.base_env.unwrapped._get_obs()
+        else:
+            raw_obs = self.base_env._get_obs()
+        
+        if raw_obs is None or len(raw_obs) < 15:
+            return np.zeros(10)  # Fallback for invalid observations
+        
+        # Extract components based on standard Ant observation structure
+        position = raw_obs[0:3]                         # x, y, z position
+        orientation = raw_obs[3:7]                      # quaternion
+        joint_positions = raw_obs[7:15]                 # 8 joint angles
+        joint_velocities = raw_obs[15:23] if len(raw_obs) >= 23 else np.zeros(8)
+        
+        # Normalize components to common ranges
+        normalized_position = position / 10.0           # Typical Ant movement range
+        normalized_orientation = orientation            # Already normalized by definition
+        normalized_joint_positions = joint_positions / 1.0  # Joint angle range
+        normalized_joint_velocities = joint_velocities / 10.0  # Typical velocity range
+        
+        # Calculate additional features helpful for transfer
+        body_height = np.array([position[2]])  # z-coordinate (height)
+        normalized_body_height = body_height / 1.0
+        
+        # Forward velocity, important for locomotion tasks
+        forward_velocity = np.array([raw_obs[13]]) if len(raw_obs) > 13 else np.array([0.0])
+        normalized_forward_velocity = forward_velocity / 5.0
+        
+        # Combine normalized features into transferable state
+        transferable_state = np.concatenate([
+            normalized_position,                # 3D position 
+            normalized_orientation,             # 4D orientation
+            normalized_joint_positions,         # 8D joint positions
+            normalized_joint_velocities,        # 8D joint velocities
+            normalized_body_height,             # 1D body height
+            normalized_forward_velocity         # 1D forward velocity
+        ])
+        
+        return transferable_state
+
     def increase_complexity(self, increment=0.1):
         """Increase the environment complexity."""
         current = self.complexity_level
@@ -223,7 +233,3 @@ def get_state_representation(self):
         
         # Update complexity level in config
         self.config["complexity_level"] = target
-        
-    def render(self):
-        """Render the environment."""
-        return self.base_env.render()
