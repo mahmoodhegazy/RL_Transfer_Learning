@@ -1,0 +1,12 @@
+{
+    "parameter_transfer_reduced_dof": {
+        "jumpstart": 0.060946930412132616,
+        "asymptotic": -7.0808676394783046,
+        "transfer_ratio": 1.1660906206755248,
+        "time_to_threshold": {
+            "baseline": 200,
+            "transfer": 200,
+            "improvement": 0
+        },
+        "p_value": 0.1215560970254207,
+        "is_negative": 

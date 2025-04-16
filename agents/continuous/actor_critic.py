@@ -193,7 +193,7 @@ class ActorCriticAgent(BaseAgent):
         # Update networks at the end of an episode
         if done:
             # Print some debug info
-            print(f"Episode ending - States: {len(self.episode_states)}, Rewards: {len(self.episode_rewards)}")
+            # print(f"Episode ending - States: {len(self.episode_states)}, Rewards: {len(self.episode_rewards)}")
             self._update_networks()
             self.reset_episode()
         
