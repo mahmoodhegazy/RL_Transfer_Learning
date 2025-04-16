@@ -218,15 +218,21 @@ class ActorCriticAgent(BaseAgent):
     
     def _update_networks(self):
         """Update actor and critic networks using collected experience."""
-        # Convert episode data to tensors
-        states_np = np.array(self.episode_states)
-        actions_np = np.array(self.episode_actions)
+        # Ensure tensor lengths match
+        min_length = min(len(self.episode_states), len(self.episode_actions), len(self.episode_rewards))
+        
+        if min_length == 0:
+            print("Warning: No experience to update networks")
+            return
+            
+        states_np = np.array(self.episode_states[:min_length])
+        actions_np = np.array(self.episode_actions[:min_length])
         
         states = torch.FloatTensor(states_np).to(self.device)
         actions = torch.FloatTensor(actions_np).to(self.device)
         
-        # Calculate discounted returns
-        returns = self._compute_returns(self.episode_rewards)
+        # Calculate discounted returns using only the rewards we have states for
+        returns = self._compute_returns(self.episode_rewards[:min_length])
         returns = torch.FloatTensor(returns).to(self.device)
         
         # Calculate state values
@@ -235,11 +241,11 @@ class ActorCriticAgent(BaseAgent):
         # Calculate advantages
         advantages = returns - state_values.detach()
         
+        # Rest of the method remains the same...
         # IMPORTANT: Recompute log probabilities here to maintain the computational graph
-        # This requires adding a new method to the actor class
         log_probs = self._get_log_probs(states, actions)
         
-        # Calculate actor (policy) loss - now log_probs is connected to the graph
+        # Calculate actor (policy) loss
         actor_loss = -(log_probs * advantages).mean()
         
         # Calculate critic (value) loss
