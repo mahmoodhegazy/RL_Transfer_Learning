@@ -1,4 +1,5 @@
 import numpy as np
+from gymnasium import spaces
 from environments.continuous.ant import AntEnv
 
 class ReducedDOFAntEnv(AntEnv):

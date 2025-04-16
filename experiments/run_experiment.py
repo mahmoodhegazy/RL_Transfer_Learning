@@ -95,14 +95,23 @@ class ExperimentRunner:
         
         for episode in range(num_episodes):
             # Training episode
-            state = env.reset()
+            state = env.reset() if not isinstance(env.reset(), tuple) else env.reset()[0]
             done = False
             episode_reward = 0
             steps = 0
             
             while not done:
                 action = agent.select_action(state)
-                next_state, reward, done, _ = env.step(action)
+                
+                # Handle both gym and gymnasium API formats
+                try:
+                    # Try new Gymnasium API (5 return values)
+                    next_state, reward, terminated, truncated, info = env.step(action)
+                    done = terminated or truncated
+                except ValueError:
+                    # Fall back to old Gym API (4 return values)
+                    next_state, reward, done, info = env.step(action)
+                
                 agent.update(state, action, reward, next_state, done)
                 
                 state = next_state
@@ -131,13 +140,22 @@ class ExperimentRunner:
         
         total_rewards = []
         for _ in range(num_episodes):
-            state = env.reset()
+            state = env.reset() if not isinstance(env.reset(), tuple) else env.reset()[0]
             done = False
             episode_reward = 0
             
             while not done:
                 action = agent.select_action(state)
-                next_state, reward, done, _ = env.step(action)
+                
+                # Handle both gym and gymnasium API formats
+                try:
+                    # Try new Gymnasium API
+                    next_state, reward, terminated, truncated, _ = env.step(action)
+                    done = terminated or truncated
+                except ValueError:
+                    # Fall back to old Gym API
+                    next_state, reward, done, _ = env.step(action)
+                    
                 episode_reward += reward
                 state = next_state
                 

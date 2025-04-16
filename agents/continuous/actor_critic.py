@@ -29,7 +29,18 @@ class ActorNetwork(nn.Module):
         self.log_std = nn.Parameter(torch.zeros(action_dim))
         
         # Action bounds (used to scale actions)
-        self.action_bounds = action_bounds
+        if action_bounds is not None:
+            low, high = action_bounds
+            # Convert to tensors if they're numpy arrays
+            if isinstance(low, np.ndarray):
+                self.action_bounds = (
+                    torch.tensor(low, dtype=torch.float32),
+                    torch.tensor(high, dtype=torch.float32)
+                )
+            else:
+                self.action_bounds = action_bounds
+        else:
+            self.action_bounds = None
     
     def forward(self, state):
         """Forward pass to get mean and std of action distribution."""
@@ -40,7 +51,16 @@ class ActorNetwork(nn.Module):
         if self.action_bounds is not None:
             mu = torch.tanh(mu)
             low, high = self.action_bounds
-            mu = low + (high - low) * (mu + 1) / 2
+            
+            # Convert NumPy arrays to tensors with the same device as mu
+            if isinstance(low, np.ndarray):
+                low_tensor = torch.tensor(low, dtype=mu.dtype, device=mu.device)
+                high_tensor = torch.tensor(high, dtype=mu.dtype, device=mu.device)
+                # Scale the output from [-1, 1] to [low, high]
+                mu = low_tensor + (high_tensor - low_tensor) * (mu + 1) / 2
+            else:
+                # If they're already tensors, use them directly
+                mu = low + (high - low) * (mu + 1) / 2
         
         # Use fixed std
         std = torch.exp(self.log_std).expand_as(mu)
@@ -57,6 +77,13 @@ class ActorNetwork(nn.Module):
         log_prob = normal.log_prob(action).sum(dim=-1)
         
         return action, log_prob
+    
+    def evaluate_actions(self, state, action):
+        """Calculate log probability of action given state."""
+        mu, std = self.forward(state)
+        normal = torch.distributions.Normal(mu, std)
+        log_prob = normal.log_prob(action)
+        return log_prob.sum(dim=1)
 
 class CriticNetwork(nn.Module):
     """Critic network to estimate state values."""
@@ -135,9 +162,8 @@ class ActorCriticAgent(BaseAgent):
         """Reset episode-specific data."""
         self.episode_states = []
         self.episode_actions = []
-        self.episode_log_probs = []
         self.episode_rewards = []
-    
+
     def select_action(self, state):
         """Select an action using the current policy."""
         # Convert state to tensor
@@ -145,18 +171,17 @@ class ActorCriticAgent(BaseAgent):
         
         # Forward pass through actor network to get action
         self.actor.eval()
-        with torch.no_grad():
-            action_tensor, log_prob = self.actor.sample_action(state_tensor)
+        with torch.no_grad():  # This is fine during action selection
+            action_tensor, _ = self.actor.sample_action(state_tensor)
         self.actor.train()
         
         # Convert to numpy and clip to valid range
         action = action_tensor.cpu().detach().numpy()[0]
         action = np.clip(action, self.action_low, self.action_high)
         
-        # Save for training
+        # Only store state and action for later use
         self.episode_states.append(state)
         self.episode_actions.append(action)
-        self.episode_log_probs.append(log_prob.item())
         
         return action
     
@@ -167,18 +192,38 @@ class ActorCriticAgent(BaseAgent):
         
         # Update networks at the end of an episode
         if done:
+            # Print some debug info
+            print(f"Episode ending - States: {len(self.episode_states)}, Rewards: {len(self.episode_rewards)}")
             self._update_networks()
             self.reset_episode()
         
         # Increment training steps
         self.training_steps += 1
+
+    def _get_log_probs(self, states, actions):
+        """Calculate log probabilities of actions given states."""
+        # Get action distributions
+        mu, std = self.actor(states)
+        
+        # Create normal distribution
+        normal = torch.distributions.Normal(mu, std)
+        
+        # Calculate log probabilities
+        log_probs = normal.log_prob(actions)
+        
+        # Sum across action dimensions
+        log_probs = log_probs.sum(dim=1)
+        
+        return log_probs
     
     def _update_networks(self):
         """Update actor and critic networks using collected experience."""
         # Convert episode data to tensors
-        states = torch.FloatTensor(self.episode_states).to(self.device)
-        actions = torch.FloatTensor(self.episode_actions).to(self.device)
-        log_probs = torch.FloatTensor(self.episode_log_probs).to(self.device)
+        states_np = np.array(self.episode_states)
+        actions_np = np.array(self.episode_actions)
+        
+        states = torch.FloatTensor(states_np).to(self.device)
+        actions = torch.FloatTensor(actions_np).to(self.device)
         
         # Calculate discounted returns
         returns = self._compute_returns(self.episode_rewards)
@@ -190,7 +235,11 @@ class ActorCriticAgent(BaseAgent):
         # Calculate advantages
         advantages = returns - state_values.detach()
         
-        # Calculate actor (policy) loss
+        # IMPORTANT: Recompute log probabilities here to maintain the computational graph
+        # This requires adding a new method to the actor class
+        log_probs = self._get_log_probs(states, actions)
+        
+        # Calculate actor (policy) loss - now log_probs is connected to the graph
         actor_loss = -(log_probs * advantages).mean()
         
         # Calculate critic (value) loss
@@ -209,7 +258,7 @@ class ActorCriticAgent(BaseAgent):
         if self.clip_grad > 0:
             torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.clip_grad)
         self.critic_optimizer.step()
-    
+        
     def _compute_returns(self, rewards):
         """Compute discounted returns."""
         returns = []
