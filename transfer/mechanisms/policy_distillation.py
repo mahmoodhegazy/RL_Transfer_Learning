@@ -103,80 +103,38 @@ class PolicyDistillation:
     
     def _distill_policy(self, source_agent, target_agent, state_buffer):
         """Distill policy from source to target agent."""
-        print(f"Distilling policy over {self.iterations} iterations...")
+        # Ensure agents have policies and are in the right mode
+        if not hasattr(source_agent, 'actor') or not hasattr(target_agent, 'actor'):
+            raise ValueError("Both agents must have actor networks for distillation")
         
-        # Set agents to evaluation mode during distillation
-        source_agent.training = False
-        target_agent.training = True
+        # Set source to evaluation mode, target to training
+        source_agent.actor.eval()
+        target_agent.actor.train()
         
         # Get optimizer for target policy
-        optimizer = optim.Adam(target_agent.policy.parameters(), lr=self.learning_rate)
+        optimizer = optim.Adam(target_agent.actor.parameters(), lr=self.learning_rate)
         
         # Distillation loop
         for iteration in range(self.iterations):
             # Sample batch of states
-            if len(state_buffer) <= self.batch_size:
-                batch_states = state_buffer
-            else:
-                batch_indices = np.random.choice(len(state_buffer), self.batch_size, replace=False)
-                batch_states = [state_buffer[i] for i in batch_indices]
+            batch_indices = np.random.choice(len(state_buffer), 
+                                            min(self.batch_size, len(state_buffer)), 
+                                            replace=False)
+            batch_states = [state_buffer[i] for i in batch_indices]
             
             # Convert states to tensor
             states_tensor = torch.FloatTensor(np.array(batch_states)).to(self.device)
             
             # Get source policy outputs
             with torch.no_grad():
-                if hasattr(source_agent.policy, 'sample_action'):
-                    # For stochastic policies like in Actor-Critic
-                    source_actions, _ = source_agent.policy.sample_action(states_tensor)
-                    # For policy distillation we want means, not samples
-                    source_means, source_log_stds = source_agent.policy(states_tensor)
-                elif hasattr(source_agent.policy, 'forward'):
-                    # Simpler case for deterministic policies
-                    source_means = source_agent.policy(states_tensor)
-                    source_log_stds = None
-                else:
-                    print("Warning: Source policy doesn't have expected methods. Distillation may not work.")
-                    break
-            
+                source_means, source_log_stds = source_agent.actor(states_tensor)
+                
             # Get target policy outputs
-            if hasattr(target_agent.policy, 'sample_action'):
-                target_means, target_log_stds = target_agent.policy(states_tensor)
-            elif hasattr(target_agent.policy, 'forward'):
-                target_means = target_agent.policy(states_tensor)
-                target_log_stds = None
-            else:
-                print("Warning: Target policy doesn't have expected methods. Distillation may not work.")
-                break
+            target_means, target_log_stds = target_agent.actor(states_tensor)
             
-            # Calculate distillation loss
-            if self.loss_type == "mse":
-                # Simple mean squared error between means
-                loss = F.mse_loss(target_means, source_means)
-                
-                # Add log_std loss if available
-                if source_log_stds is not None and target_log_stds is not None:
-                    loss += F.mse_loss(target_log_stds, source_log_stds)
-                
-            elif self.loss_type == "kl":
-                # KL divergence between distributions (for stochastic policies)
-                if source_log_stds is not None and target_log_stds is not None:
-                    source_std = torch.exp(source_log_stds)
-                    target_std = torch.exp(target_log_stds)
-                    
-                    # KL divergence between two Gaussians
-                    kl_div = (source_log_stds - target_log_stds + 
-                             (target_std.pow(2) + (target_means - source_means).pow(2)) / 
-                             (2.0 * source_std.pow(2)) - 0.5)
-                    
-                    loss = kl_div.mean()
-                else:
-                    # Fall back to MSE if log_stds not available
-                    loss = F.mse_loss(target_means, source_means)
-            
-            else:
-                # Default to MSE
-                loss = F.mse_loss(target_means, source_means)
+            # Calculate distillation loss - KL divergence
+            loss = self._compute_kl_divergence(source_means, source_log_stds,
+                                            target_means, target_log_stds)
             
             # Update target policy
             optimizer.zero_grad()
@@ -184,8 +142,8 @@ class PolicyDistillation:
             optimizer.step()
             
             # Log progress
-            if (iteration + 1) % (self.iterations // 10) == 0:
-                print(f"  Distillation iteration {iteration + 1}/{self.iterations}, Loss: {loss.item():.6f}")
+            if (iteration + 1) % 100 == 0:
+                print(f"Distillation iteration {iteration+1}/{self.iterations}, Loss: {loss.item():.6f}")
         
         # Set agents back to original modes
         source_agent.training = False

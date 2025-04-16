@@ -122,6 +122,49 @@ class AntEnv(BaseEnvironment):
         
         return forward_reward - control_cost + goal_reward
     
+    def create_state_mapping(self, source_agent, target_agent):
+        """Create mapping between source and target state spaces."""
+        # Extract dimensions from both observation spaces
+        source_dims = source_agent.obs_dim
+        target_dims = target_agent.obs_dim
+        
+        # Initialize mapping dictionary
+        mapping = {}
+        
+        # For Ant environments specifically, we need to map the observation
+        # components based on their semantic meaning
+        
+        # Define semantic segments of the observation vector
+        segments = {
+            'position': {'source_range': (0, min(3, source_dims)), 
+                        'target_range': (0, min(3, target_dims))},
+                        
+            'orientation': {'source_range': (3, min(7, source_dims)), 
+                        'target_range': (3, min(7, target_dims))},
+                        
+            'joint_positions': {'source_range': (7, min(15, source_dims)), 
+                            'target_range': (7, min(15, target_dims))},
+                            
+            'velocities': {'source_range': (15, min(23, source_dims)), 
+                        'target_range': (15, min(23, target_dims))}
+        }
+        
+        # Create mapping for each segment
+        for segment, ranges in segments.items():
+            s_start, s_end = ranges['source_range']
+            t_start, t_end = ranges['target_range']
+            
+            # Skip if source doesn't have this segment
+            if s_start >= source_dims:
+                continue
+                
+            # Map available dimensions
+            shared_length = min(s_end - s_start, t_end - t_start)
+            for i in range(shared_length):
+                mapping[s_start + i] = t_start + i
+        
+        return mapping
+        
     def get_state_representation(self):
         """Get the state representation suitable for transfer learning.
         
