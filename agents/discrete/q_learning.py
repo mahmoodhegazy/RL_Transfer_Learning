@@ -134,7 +134,7 @@ class QLearningAgent(BaseAgent):
     
     def extract_knowledge(self, knowledge_type):
         """Extract agent's knowledge for transfer learning."""
-        if knowledge_type == "q_values":
+        if knowledge_type == "q_values" or knowledge_type == "value_function":
             # Return the entire Q-table
             return {"q_table": self.q_table}
         elif knowledge_type == "policy":
@@ -160,9 +160,6 @@ class QLearningAgent(BaseAgent):
                 "min_exploration_rate": self.min_exploration_rate,
                 "training_steps": self.training_steps
             }
-        elif knowledge_type == "value_function":
-            # Return the Q-table as the value function
-            return {"value_function": self.q_table}
         else:
             raise ValueError(f"Unknown knowledge type: {knowledge_type}")
     

@@ -39,18 +39,79 @@ class ValueTransfer:
         
         return target_agent
     
+    def _scale_grid_size(self, knowledge, source_size=3, target_size=5):
+        """Scale Q-table from smaller grid to larger grid."""
+        if "q_table" not in knowledge:
+            return knowledge
+        
+        q_table = knowledge["q_table"]
+        scaled_q = {}
+        
+        # Calculate scaling ratio
+        scale_ratio = (target_size - 1) / (source_size - 1)
+        
+        def _scale_destination_index(dest_idx, source_size, target_size):
+            # Convert flat index back to 2D coordinates
+            dest_row = dest_idx // source_size
+            dest_col = dest_idx % source_size
+            
+            # Scale the coordinates
+            scaled_row = int(round(dest_row * scale_ratio))
+            scaled_col = int(round(dest_col * scale_ratio))
+            
+            # Convert back to flat index for target grid
+            return scaled_row * target_size + scaled_col
+        
+        if isinstance(q_table, dict):
+            for source_state, values in q_table.items():
+                # Convert tuple state to list for manipulation
+                state = list(source_state)
+                row, col = state[0], state[1]
+                dest_idx = state[3]  # Get destination index
+                
+                # Scale the taxi position
+                scaled_row = int(round(row * scale_ratio))
+                scaled_col = int(round(col * scale_ratio))
+                
+                # Scale the destination index
+                scaled_dest = _scale_destination_index(dest_idx, source_size, target_size)
+                
+                # Create new state tuple with scaled position and destination
+                scaled_state = tuple([scaled_row, scaled_col, state[2], scaled_dest] + list(source_state[4:]))
+                scaled_q[scaled_state] = values.copy() if isinstance(values, np.ndarray) else values
+                
+                # Fill surrounding states with same values
+                if row == 1 and col == 1:  # Middle state in 3x3 grid
+                    # Fill all states that map to middle
+                    for r in range(1, 4):
+                        for c in range(1, 4):
+                            if (r, c) != (2, 2):  # Skip the exact middle
+                                middle_state = tuple([r, c, state[2], scaled_dest] + list(source_state[4:]))
+                                scaled_q[middle_state] = values.copy() if isinstance(values, np.ndarray) else values
+        
+        knowledge["q_table"] = scaled_q
+        return knowledge
+
     def _process_knowledge(self, knowledge, source_agent, target_agent):
         """Process value function knowledge for transfer."""
         processed_knowledge = copy.deepcopy(knowledge)
         
-        if "q_table" in knowledge and self.transfer_type == "q_values":
+        if "q_table" in knowledge and (self.transfer_type == "q_values" or self.transfer_type == "value_function"):
             # Process Q-table (for tabular methods)
             q_table = knowledge["q_table"]
             
             if self.adaptation_method == "normalized":
                 # Normalize Q-values to [0, 1] range
                 processed_knowledge = self._normalize_q_values(q_table)
-                
+                    # Scale grid size if needed
+            if (hasattr(source_agent.env, 'grid_size') and 
+                hasattr(target_agent.env, 'grid_size') and
+                source_agent.env.grid_size != target_agent.env.grid_size):
+                processed_knowledge = self._scale_grid_size(
+                    processed_knowledge,
+                    source_agent.env.grid_size,
+                    target_agent.env.grid_size
+                )
             elif self.adaptation_method == "rescaled":
                 # Rescale based on reward ranges of environments
                 if hasattr(source_agent.env, 'reward_range') and hasattr(target_agent.env, 'reward_range'):
