@@ -37,7 +37,7 @@ def run_taxi_transfer_experiment():
     # Define experiment configuration
     experiment_config = {
         'name': 'taxi_transfer_experiment',
-        'num_episodes': 1000,
+        'num_episodes': 500,
         'eval_frequency': 10,
         'eval_episodes': 5,
 
@@ -45,7 +45,8 @@ def run_taxi_transfer_experiment():
         'target_env_config': {
             'type': 'taxi',
             'grid_size': 5,
-            'num_passengers': 1
+            'num_passengers': 1,
+            # 'use_fixed_locations': True
         },
 
         # Agent configuration
@@ -73,11 +74,34 @@ def run_taxi_transfer_experiment():
                     'exploration_rate': 0.1,
                     'exploration_decay': 0.995
                 },
-                'source_episodes': 200,
+                'source_episodes': 500,
                 'mechanism_config': {
                     'type': 'parameter_transfer',
                     'transfer_weights': True,
                     'transfer_bias': True
+                }
+            },
+            {
+                'name': 'value_transfer',
+                'source_env_config': {
+                    'type': 'simplified_taxi',
+                    'grid_size': 3,
+                    'num_passengers': 1,
+                    # 'use_fixed_locations': True
+                },
+                'source_agent_config': {
+                    'type': 'q_learning',
+                    'learning_rate': 0.1,
+                    'discount_factor': 0.99,
+                    'exploration_rate': 0.1,
+                    'exploration_decay': 0.995
+                },
+                'source_episodes': 500,
+                'mechanism_config': {
+                    'type': 'value_transfer',
+                    'transfer_type': 'q_values',
+                    'use_state_mapping': True,
+                    'adaptation_method': 'normalized',
                 }
             },
             {
@@ -94,7 +118,7 @@ def run_taxi_transfer_experiment():
                     'exploration_rate': 0.1,
                     'exploration_decay': 0.995
                 },
-                'source_episodes': 200,
+                'source_episodes': 500,
                 'mechanism_config': {
                     'type': 'reward_shaping',
                     'shaping_method': 'potential_based',
