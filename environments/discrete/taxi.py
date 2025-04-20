@@ -23,13 +23,14 @@ class TaxiEnv(BaseEnvironment):
         self.num_passengers = config.get("num_passengers", 1)
         self.max_fuel = config.get("max_fuel", float('inf'))  # Infinite by default
         self.stochasticity = config.get("stochasticity", 0.0)  # Deterministic by default
-        
+        self.use_fixed_locations = config.get("use_fixed_locations", False)
+
         # Define the grid world
         self.grid = np.zeros((self.grid_size, self.grid_size), dtype=int)
         
         # Generate passenger locations and destinations
-        self.passenger_locations = None
-        self.destination_locations = None
+        self.passenger_locations = []
+        self.destination_locations = []
         
         # Define action space (North, South, East, West, Pickup, Dropoff)
         self.action_space = spaces.Discrete(6)
@@ -59,28 +60,29 @@ class TaxiEnv(BaseEnvironment):
         self.fuel_penalty = config.get("fuel_penalty", -10)  # Penalty for running out of fuel
         self.illegal_action_penalty = config.get("illegal_action_penalty", -10)
 
-    # Add this as a class variable
-    FIXED_LOCATIONS = [
-        (0, 0),  # R(ed)    - Top left
-        (0, 4),  # G(reen)  - Top right
-        (1, 2),  # Y(ellow) - Bottom left
-        (4, 4)   # B(lue)   - Bottom right If this is enabled, learning is very noisy
-    ]
-
     def _generate_locations(self):
-        """Generate passenger pickup and destination locations from fixed locations."""
-        # Clear previous locations
-        self.passenger_locations = None
-        self.destination_locations = None
+        """Generate passenger pickup and destination locations from corner locations."""
+        # Define corner locations
+        corner_locations = [
+            (0, 0),          # Top-left
+            (0, self.grid_size-1),    # Top-right
+            (self.grid_size-1, 0),    # Bottom-left
+            (self.grid_size-1, self.grid_size-1)  # Bottom-right
+        ]
         
-        # For each passenger
-        for _ in range(self.num_passengers):
-            # Pick random pickup and dropoff locations from fixed points
-            pickup_idx = np.random.randint(len(self.FIXED_LOCATIONS))
-            dropoff_idx = np.random.randint(len(self.FIXED_LOCATIONS))
-            
-            self.passenger_locations = self.FIXED_LOCATIONS[pickup_idx]
-            self.destination_locations = self.FIXED_LOCATIONS[dropoff_idx]     
+        # Clear previous locations
+        self.passenger_locations = []
+        self.destination_locations = []
+        
+        if self.use_fixed_locations:
+            pickup_idx = 0
+            dropoff_idx = 3
+        else:
+            # Randomly select pickup and dropoff locations from corners
+            pickup_idx = np.random.randint(len(corner_locations))
+            dropoff_idx = np.random.randint(len(corner_locations))
+        self.passenger_locations = corner_locations[pickup_idx]
+        self.destination_locations = corner_locations[dropoff_idx]
 
     def reset(self):
         """Reset the environment to initial state."""
@@ -211,11 +213,14 @@ class TaxiEnv(BaseEnvironment):
         if current < 0.3 and target >= 0.3:
             # Increase grid size
             self.grid_size += 1
+            self.grid = np.zeros((self.grid_size, self.grid_size), dtype=int)  # Add this line
             self.observation_space = spaces.MultiDiscrete([
                 self.grid_size,                      # taxi row
                 self.grid_size,                      # taxi col
                 *([3] * self.num_passengers),        # passenger status
-                *([self.grid_size * self.grid_size] * self.num_passengers)  # destination locations
+                *([self.grid_size * self.grid_size] * self.num_passengers),  # destination locations
+                self.grid_size,                      # passenger row (not in original definition)
+                self.grid_size
             ])
         
         if current < 0.5 and target >= 0.5:
