@@ -1,0 +1,38 @@
+{
+    "parameter_transfer": {
+        "jumpstart": 234.3,
+        "asymptotic": 15.219999999999999,
+        "transfer_ratio": 0.8631780527789464,
+        "time_to_threshold": {
+            "baseline": 500,
+            "transfer": 500,
+            "improvement": 0
+        },
+        "p_value": 0.022846232412563096,
+        "is_negative": true
+    },
+    "value_transfer": {
+        "jumpstart": 126.20000000000005,
+        "asymptotic": 6.600000000000001,
+        "transfer_ratio": 0.9071363286860392,
+        "time_to_threshold": {
+            "baseline": 500,
+            "transfer": 500,
+            "improvement": 0
+        },
+        "p_value": 0.04389168082382279,
+        "is_negative": true
+    },
+    "reward_shaping": {
+        "jumpstart": 87.39999999999998,
+        "asymptotic": 12.439999999999998,
+        "transfer_ratio": 0.9966922485456049,
+        "time_to_threshold": {
+            "baseline": 500,
+            "transfer": 500,
+            "improvement": 0
+        },
+        "p_value": 0.4006707182961269,
+        "is_negative": true
+    }
+}

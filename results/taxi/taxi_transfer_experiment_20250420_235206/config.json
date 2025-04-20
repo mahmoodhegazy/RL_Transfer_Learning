@@ -1,0 +1,86 @@
+{
+    "name": "taxi_transfer_experiment",
+    "num_episodes": 500,
+    "eval_frequency": 10,
+    "eval_episodes": 5,
+    "target_env_config": {
+        "type": "taxi",
+        "grid_size": 5,
+        "num_passengers": 1
+    },
+    "agent_config": {
+        "type": "q_learning",
+        "learning_rate": 0.1,
+        "discount_factor": 0.99,
+        "exploration_rate": 0.1,
+        "exploration_decay": 0.995
+    },
+    "transfer_configs": [
+        {
+            "name": "parameter_transfer",
+            "source_env_config": {
+                "type": "simplified_taxi",
+                "grid_size": 3,
+                "num_passengers": 1
+            },
+            "source_agent_config": {
+                "type": "q_learning",
+                "learning_rate": 0.1,
+                "discount_factor": 0.99,
+                "exploration_rate": 0.1,
+                "exploration_decay": 0.995
+            },
+            "source_episodes": 200,
+            "mechanism_config": {
+                "type": "parameter_transfer",
+                "transfer_weights": true,
+                "transfer_bias": true
+            }
+        },
+        {
+            "name": "value_transfer",
+            "source_env_config": {
+                "type": "simplified_taxi",
+                "grid_size": 3,
+                "num_passengers": 1
+            },
+            "source_agent_config": {
+                "type": "q_learning",
+                "learning_rate": 0.1,
+                "discount_factor": 0.99,
+                "exploration_rate": 0.1,
+                "exploration_decay": 0.995
+            },
+            "source_episodes": 500,
+            "mechanism_config": {
+                "type": "value_transfer",
+                "transfer_type": "q_values",
+                "use_state_mapping": true,
+                "adaptation_method": "normalized"
+            }
+        },
+        {
+            "name": "reward_shaping",
+            "source_env_config": {
+                "type": "simplified_taxi",
+                "grid_size": 3,
+                "num_passengers": 1
+            },
+            "source_agent_config": {
+                "type": "q_learning",
+                "learning_rate": 0.1,
+                "discount_factor": 0.99,
+                "exploration_rate": 0.1,
+                "exploration_decay": 0.995
+            },
+            "source_episodes": 500,
+            "mechanism_config": {
+                "type": "reward_shaping",
+                "shaping_method": "potential_based",
+                "scaling_factor": 0.5,
+                "gamma": 0.99,
+                "decay_factor": 0.99
+            }
+        }
+    ]
+}
