@@ -1,0 +1,194 @@
+{
+    "jumpstart": {
+        "parameter_transfer_reduced_dof": {
+            "t_statistic": 4.435549113977275,
+            "p_value": 5.19148812373748e-05,
+            "significant": true,
+            "mean": 5.913186956306895,
+            "std": 9.331946875238756,
+            "effect_size": 0.633649873425325
+        },
+        "feature_transfer_planar": {
+            "t_statistic": 1.0847408429843455,
+            "p_value": 0.2833447855678009,
+            "significant": false,
+            "mean": 1.0372050613840795,
+            "std": 6.693244268108872,
+            "effect_size": 0.15496297756919222
+        },
+        "policy_distillation_simple_physics": {
+            "t_statistic": 2.7943812495600353,
+            "p_value": 0.007401579420966967,
+            "significant": true,
+            "mean": 3.8428962476120088,
+            "std": 9.62655820050303,
+            "effect_size": 0.3991973213657193
+        },
+        "progressive_transfer": {
+            "t_statistic": 2.706506353840114,
+            "p_value": 0.00933151480072632,
+            "significant": true,
+            "mean": 2.9832914489277327,
+            "std": 7.715865921712809,
+            "effect_size": 0.3866437648343021
+        },
+        "parameter_transfer_reduced_dof_vs_feature_transfer_planar": {
+            "t_statistic": 3.6599561122891284,
+            "p_value": 0.0006169867791758758,
+            "significant": true
+        },
+        "parameter_transfer_reduced_dof_vs_policy_distillation_simple_physics": {
+            "t_statistic": 1.1828975920571656,
+            "p_value": 0.24255754137008015,
+            "significant": false
+        },
+        "parameter_transfer_reduced_dof_vs_progressive_transfer": {
+            "t_statistic": 1.9370577275174088,
+            "p_value": 0.058514670975472874,
+            "significant": false
+        },
+        "feature_transfer_planar_vs_policy_distillation_simple_physics": {
+            "t_statistic": -2.0035887775325905,
+            "p_value": 0.050659934090153,
+            "significant": false
+        },
+        "feature_transfer_planar_vs_progressive_transfer": {
+            "t_statistic": -1.5301832711031584,
+            "p_value": 0.13240224765004968,
+            "significant": false
+        },
+        "policy_distillation_simple_physics_vs_progressive_transfer": {
+            "t_statistic": 0.573438593556588,
+            "p_value": 0.5689704193729761,
+            "significant": false
+        }
+    },
+    "asymptotic": {
+        "parameter_transfer_reduced_dof": {
+            "t_statistic": 7.8142132805026066,
+            "p_value": 3.6784146254383333e-10,
+            "significant": true,
+            "mean": 10.494579448363837,
+            "std": 9.401081529453956,
+            "effect_size": 1.1163161829289439
+        },
+        "feature_transfer_planar": {
+            "t_statistic": 6.111979359050049,
+            "p_value": 1.5726772117933495e-07,
+            "significant": true,
+            "mean": 6.112776976881748,
+            "std": 7.000913505182838,
+            "effect_size": 0.8731399084357213
+        },
+        "policy_distillation_simple_physics": {
+            "t_statistic": 3.3923729011570574,
+            "p_value": 0.0013788406032805307,
+            "significant": true,
+            "mean": 3.3326070315554035,
+            "std": 6.876675973013201,
+            "effect_size": 0.4846247001652939
+        },
+        "progressive_transfer": {
+            "t_statistic": 3.9497234655467954,
+            "p_value": 0.0002503874391673077,
+            "significant": true,
+            "mean": 4.507051182500691,
+            "std": 7.987738522128961,
+            "effect_size": 0.5642462093638279
+        },
+        "parameter_transfer_reduced_dof_vs_feature_transfer_planar": {
+            "t_statistic": 2.681853800487388,
+            "p_value": 0.009950699061020168,
+            "significant": true
+        },
+        "parameter_transfer_reduced_dof_vs_policy_distillation_simple_physics": {
+            "t_statistic": 4.6534841686638195,
+            "p_value": 2.510051840150261e-05,
+            "significant": true
+        },
+        "parameter_transfer_reduced_dof_vs_progressive_transfer": {
+            "t_statistic": 3.355132024024894,
+            "p_value": 0.0015384670687423327,
+            "significant": true
+        },
+        "feature_transfer_planar_vs_policy_distillation_simple_physics": {
+            "t_statistic": 1.900801012890685,
+            "p_value": 0.06321857279331194,
+            "significant": false
+        },
+        "feature_transfer_planar_vs_progressive_transfer": {
+            "t_statistic": 1.141196765043095,
+            "p_value": 0.25933477268791694,
+            "significant": false
+        },
+        "policy_distillation_simple_physics_vs_progressive_transfer": {
+            "t_statistic": -0.9935557684940101,
+            "p_value": 0.32532043059262095,
+            "significant": false
+        }
+    },
+    "transfer_ratio": {
+        "parameter_transfer_reduced_dof": {
+            "t_statistic": 9.425854106793327,
+            "p_value": 1.3804285514016242e-12,
+            "significant": true,
+            "mean": 1.4782411067546928,
+            "std": 0.35516014881559965,
+            "effect_size": 4.16218179794209
+        },
+        "feature_transfer_planar": {
+            "t_statistic": 6.154139965359874,
+            "p_value": 1.3538109615997585e-07,
+            "significant": true,
+            "mean": 1.2024789661082584,
+            "std": 0.2303088279980202,
+            "effect_size": 5.221158809069165
+        },
+        "policy_distillation_simple_physics": {
+            "t_statistic": 6.2825043155782065,
+            "p_value": 8.574185034086631e-08,
+            "significant": true,
+            "mean": 1.1800374290689044,
+            "std": 0.2005986689666672,
+            "effect_size": 5.882578559207625
+        },
+        "progressive_transfer": {
+            "t_statistic": 5.898240559780203,
+            "p_value": 3.3566145510505185e-07,
+            "significant": true,
+            "mean": 1.1798653248112874,
+            "std": 0.2134631948151552,
+            "effect_size": 5.527254128436388
+        },
+        "parameter_transfer_reduced_dof_vs_feature_transfer_planar": {
+            "t_statistic": 5.158596587710977,
+            "p_value": 4.4805620048596e-06,
+            "significant": true
+        },
+        "parameter_transfer_reduced_dof_vs_policy_distillation_simple_physics": {
+            "t_statistic": 5.665081486237245,
+            "p_value": 7.645837080947492e-07,
+            "significant": true
+        },
+        "parameter_transfer_reduced_dof_vs_progressive_transfer": {
+            "t_statistic": 5.125174073502484,
+            "p_value": 5.028839479226342e-06,
+            "significant": true
+        },
+        "feature_transfer_planar_vs_policy_distillation_simple_physics": {
+            "t_statistic": 0.5222428014092168,
+            "p_value": 0.6038544239434614,
+            "significant": false
+        },
+        "feature_transfer_planar_vs_progressive_transfer": {
+            "t_statistic": 0.6406913686238718,
+            "p_value": 0.524708372880807,
+            "significant": false
+        },
+        "policy_distillation_simple_physics_vs_progressive_transfer": {
+            "t_statistic": 0.005135520328039976,
+            "p_value": 0.9959233170993911,
+            "significant": false
+        }
+    }
+}
