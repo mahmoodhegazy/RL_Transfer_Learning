@@ -1,0 +1,182 @@
+{
+    "name": "comprehensive_ant_transfer_experiment",
+    "num_episodes": 1000,
+    "eval_frequency": 50,
+    "eval_episodes": 10,
+    "seed": 69,
+    "target_env_config": {
+        "type": "ant",
+        "observation_noise": 0.0,
+        "action_noise": 0.0,
+        "control_frequency": 5,
+        "seed": 69
+    },
+    "agent_config": {
+        "type": "actor_critic",
+        "learning_rate": 0.0003,
+        "discount_factor": 0.99,
+        "hidden_dims": [
+            256,
+            256
+        ],
+        "exploration_rate": 0.1,
+        "entropy_coef": 0.01,
+        "clip_grad": 0.5,
+        "seed": 69
+    },
+    "transfer_configs": [
+        {
+            "name": "parameter_transfer_reduced_dof",
+            "source_env_config": {
+                "type": "reduced_dof_ant",
+                "active_joints": [
+                    0,
+                    1,
+                    2,
+                    3
+                ],
+                "seed": 69
+            },
+            "source_agent_config": {
+                "type": "actor_critic",
+                "learning_rate": 0.0003,
+                "discount_factor": 0.99,
+                "hidden_dims": [
+                    256,
+                    256
+                ],
+                "exploration_rate": 0.1,
+                "entropy_coef": 0.01,
+                "clip_grad": 0.5,
+                "seed": 69
+            },
+            "source_episodes": 500,
+            "mechanism_config": {
+                "type": "parameter_transfer",
+                "transfer_weights": true,
+                "transfer_bias": true,
+                "use_state_mapping": true,
+                "weight_scaling": 0.9
+            }
+        },
+        {
+            "name": "feature_transfer_planar",
+            "source_env_config": {
+                "type": "planar_ant",
+                "observation_noise": 0.0,
+                "control_frequency": 5,
+                "seed": 69
+            },
+            "source_agent_config": {
+                "type": "actor_critic",
+                "learning_rate": 0.0003,
+                "discount_factor": 0.99,
+                "hidden_dims": [
+                    256,
+                    256
+                ],
+                "exploration_rate": 0.1,
+                "entropy_coef": 0.01,
+                "clip_grad": 0.5,
+                "seed": 69
+            },
+            "source_episodes": 500,
+            "mechanism_config": {
+                "type": "feature_transfer",
+                "layers_to_transfer": [
+                    "0",
+                    "2"
+                ],
+                "freeze_transferred": false,
+                "adaptation_method": "pad",
+                "use_state_mapping": true
+            }
+        },
+        {
+            "name": "policy_distillation_simple_physics",
+            "source_env_config": {
+                "type": "simplified_physics_ant",
+                "friction": 0.8,
+                "gravity": -9.0,
+                "control_frequency": 5,
+                "seed": 69
+            },
+            "source_agent_config": {
+                "type": "actor_critic",
+                "learning_rate": 0.0003,
+                "discount_factor": 0.99,
+                "hidden_dims": [
+                    256,
+                    256
+                ],
+                "exploration_rate": 0.1,
+                "entropy_coef": 0.01,
+                "clip_grad": 0.5,
+                "seed": 69
+            },
+            "source_episodes": 500,
+            "mechanism_config": {
+                "type": "policy_distillation",
+                "temperature": 1.0,
+                "iterations": 800,
+                "batch_size": 256,
+                "learning_rate": 0.0001,
+                "loss_type": "kl",
+                "collect_states": 5000,
+                "use_state_mapping": true
+            }
+        },
+        {
+            "name": "progressive_transfer",
+            "source_env_config": {
+                "type": "simplified_physics_ant",
+                "friction": 0.9,
+                "gravity": -9.5,
+                "control_frequency": 10,
+                "seed": 69
+            },
+            "source_agent_config": {
+                "type": "actor_critic",
+                "learning_rate": 0.0003,
+                "discount_factor": 0.99,
+                "hidden_dims": [
+                    256,
+                    256
+                ],
+                "exploration_rate": 0.1,
+                "entropy_coef": 0.01,
+                "clip_grad": 0.5,
+                "seed": 69
+            },
+            "source_episodes": 500,
+            "mechanism_config": {
+                "type": "parameter_transfer",
+                "transfer_weights": true,
+                "transfer_bias": true,
+                "use_state_mapping": true,
+                "progressive": true,
+                "intermediate_envs": [
+                    {
+                        "type": "simplified_physics_ant",
+                        "friction": 0.9,
+                        "gravity": -9.5,
+                        "control_frequency": 7
+                    },
+                    {
+                        "type": "simplified_physics_ant",
+                        "friction": 0.9,
+                        "gravity": -9.81,
+                        "control_frequency": 5
+                    },
+                    {
+                        "type": "simplified_physics_ant",
+                        "friction": 1.0,
+                        "gravity": -9.81,
+                        "control_frequency": 5
+                    }
+                ],
+                "intermediate_episodes": 100
+            }
+        }
+    ]
+}

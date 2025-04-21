@@ -1,0 +1,52 @@
+Statistical Analysis Summary
+=========================
+
+Jumpstart Performance:
+---------------------
+Individual Method Performance:
+  - parameter_transfer_reduced_dof: mean=5.9132, std=9.3319, p=0.0001*
+  - feature_transfer_planar: mean=1.0372, std=6.6932, p=0.2833
+  - policy_distillation_simple_physics: mean=3.8429, std=9.6266, p=0.0074*
+  - progressive_transfer: mean=2.9833, std=7.7159, p=0.0093*
+
+Method Comparisons:
+  - parameter_transfer_reduced_dof vs feature_transfer_planar: t=3.6600, p=0.0006*
+  - parameter_transfer_reduced_dof vs policy_distillation_simple_physics: t=1.1829, p=0.2426
+  - parameter_transfer_reduced_dof vs progressive_transfer: t=1.9371, p=0.0585
+  - feature_transfer_planar vs policy_distillation_simple_physics: t=-2.0036, p=0.0507
+  - feature_transfer_planar vs progressive_transfer: t=-1.5302, p=0.1324
+  - policy_distillation_simple_physics vs progressive_transfer: t=0.5734, p=0.5690
+
+Asymptotic Performance:
+----------------------
+Individual Method Performance:
+  - parameter_transfer_reduced_dof: mean=10.4946, std=9.4011, p=0.0000*
+  - feature_transfer_planar: mean=6.1128, std=7.0009, p=0.0000*
+  - policy_distillation_simple_physics: mean=3.3326, std=6.8767, p=0.0014*
+  - progressive_transfer: mean=4.5071, std=7.9877, p=0.0003*
+
+Method Comparisons:
+  - parameter_transfer_reduced_dof vs feature_transfer_planar: t=2.6819, p=0.0100*
+  - parameter_transfer_reduced_dof vs policy_distillation_simple_physics: t=4.6535, p=0.0000*
+  - parameter_transfer_reduced_dof vs progressive_transfer: t=3.3551, p=0.0015*
+  - feature_transfer_planar vs policy_distillation_simple_physics: t=1.9008, p=0.0632
+  - feature_transfer_planar vs progressive_transfer: t=1.1412, p=0.2593
+  - policy_distillation_simple_physics vs progressive_transfer: t=-0.9936, p=0.3253
+
+Transfer_ratio Performance:
+--------------------------
+Individual Method Performance:
+  - parameter_transfer_reduced_dof: mean=1.4782, std=0.3552, p=0.0000*
+  - feature_transfer_planar: mean=1.2025, std=0.2303, p=0.0000*
+  - policy_distillation_simple_physics: mean=1.1800, std=0.2006, p=0.0000*
+  - progressive_transfer: mean=1.1799, std=0.2135, p=0.0000*
+
+Method Comparisons:
+  - parameter_transfer_reduced_dof vs feature_transfer_planar: t=5.1586, p=0.0000*
+  - parameter_transfer_reduced_dof vs policy_distillation_simple_physics: t=5.6651, p=0.0000*
+  - parameter_transfer_reduced_dof vs progressive_transfer: t=5.1252, p=0.0000*
+  - feature_transfer_planar vs policy_distillation_simple_physics: t=0.5222, p=0.6039
+  - feature_transfer_planar vs progressive_transfer: t=0.6407, p=0.5247
+  - policy_distillation_simple_physics vs progressive_transfer: t=0.0051, p=0.9959
+
+Note: * indicates statistical significance at p < 0.05

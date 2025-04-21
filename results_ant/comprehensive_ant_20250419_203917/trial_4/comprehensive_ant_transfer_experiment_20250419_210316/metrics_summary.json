@@ -1,0 +1,50 @@
+{
+    "parameter_transfer_reduced_dof": {
+        "jumpstart": -8.194339773355665,
+        "asymptotic": 8.513122157786086,
+        "transfer_ratio": 1.3262130952032092,
+        "time_to_threshold": {
+            "baseline": 1000,
+            "transfer": 1000,
+            "improvement": 0
+        },
+        "p_value": 2.2405423612646223e-14,
+        "is_negative": false
+    },
+    "feature_transfer_planar": {
+        "jumpstart": -0.3429744842922986,
+        "asymptotic": 12.514050623342875,
+        "transfer_ratio": 1.5539275515926803,
+        "time_to_threshold": {
+            "baseline": 1000,
+            "transfer": 1000,
+            "improvement": 0
+        },
+        "p_value": 4.748895799101444e-20,
+        "is_negative": false
+    },
+    "policy_distillation_simple_physics": {
+        "jumpstart": 0.11101985250764201,
+        "asymptotic": -3.367982259805899,
+        "transfer_ratio": 1.0929844297308677,
+        "time_to_threshold": {
+            "baseline": 1000,
+            "transfer": 1000,
+            "improvement": 0
+        },
+        "p_value": 0.01922894680119649,
+        "is_negative": false
+    },
+    "progressive_transfer": {
+        "jumpstart": -17.524496383386307,
+        "asymptotic": -4.63853428143188,
+        "transfer_ratio": 1.034491469666924,
+        "time_to_threshold": {
+            "baseline": 1000,
+            "transfer": 1000,
+            "improvement": 0
+        },
+        "p_value": 0.1552259059095687,
+        "is_negative": false
+    }
+}
