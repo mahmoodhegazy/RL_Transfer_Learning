@@ -1,0 +1,12 @@
+{
+    "parameter_transfer": {
+        "jumpstart": 93.69999999999993,
+        "asymptotic": 41.06666666666672,
+        "transfer_ratio": 0.9430538912049149,
+        "time_to_threshold": {
+            "baseline": 300,
+            "transfer": 300,
+            "improvement": 0
+        },
+        "p_value": 0.150869316416182,
+        "is_negative": 

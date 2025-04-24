@@ -38,8 +38,9 @@ class ExperimentRunner:
         print(f"Starting experiment: {self.config['name']}")
         
         # Run baseline (learning from scratch)
+        print("Running baseline experiment...")
         self.results['baseline'] = self._run_baseline()
-        
+        print(f"Ran baseline for: {self.config['name']}")
         # Run transfer experiments
         for transfer_config in self.config['transfer_configs']:
             transfer_name = transfer_config['name']
@@ -133,7 +134,7 @@ class ExperimentRunner:
                 state = next_state
                 episode_reward += reward
                 steps += 1
-            
+
             results['episode_rewards'].append(episode_reward)
             results['episode_lengths'].append(steps)
             
@@ -144,8 +145,8 @@ class ExperimentRunner:
                 
             # Log progress
             if episode % 10 == 0:
+                # Calculate average reward over last 10 episodes
                 print(f"Episode {episode}/{num_episodes}, Reward: {episode_reward:.2f}")
-        
         return results
     
     def _evaluate_agent(self, agent, env, num_episodes):
@@ -173,7 +174,8 @@ class ExperimentRunner:
                     next_state, reward, done, _ = env.step(action)
                     
                 episode_reward += reward
-                state = next_state
+
+                done = terminated or truncated
                 
             total_rewards.append(episode_reward)
         
@@ -387,5 +389,11 @@ class ExperimentRunner:
         elif mechanism_type == 'policy_distillation':
             from transfer.mechanisms.policy_distillation import PolicyDistillation
             return PolicyDistillation(mechanism_config)
+        elif mechanism_type == 'value_transfer':
+            from transfer.mechanisms.value_transfer import ValueTransfer
+            return ValueTransfer(mechanism_config)
+        elif mechanism_type == 'reward_shaping':
+            from transfer.mechanisms.reward_shaping import RewardShaping
+            return RewardShaping(mechanism_config)
         else:
             raise ValueError(f"Unknown transfer mechanism: {mechanism_type}")

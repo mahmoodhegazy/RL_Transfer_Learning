@@ -10,23 +10,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-# Import environment creators
-from environments.discrete.simplified_taxi import SimplifiedTaxiEnv
-from environments.discrete.taxi import TaxiEnv
-from environments.continuous.reduced_dof_ant import ReducedDOFAntEnv
-from environments.continuous.ant import AntEnv
-
-# Import agent types
-from agents.discrete.q_learning import QLearningAgent
-from agents.continuous.actor_critic import ActorCriticAgent
-
-# Import transfer mechanisms
-from transfer.mechanisms.parameter_transfer import ParameterTransfer
-from transfer.mechanisms.feature_transfer import FeatureTransfer
-from transfer.mechanisms.policy_distillation import PolicyDistillation
-from transfer.mechanisms.reward_shaping import RewardShaping
-from transfer.mechanisms.value_transfer import ValueTransfer
-
 # Import experiment utilities
 from experiments.run_experiment import ExperimentRunner
 
@@ -37,7 +20,7 @@ def run_taxi_transfer_experiment():
     # Define experiment configuration
     experiment_config = {
         'name': 'taxi_transfer_experiment',
-        'num_episodes': 300,
+        'num_episodes': 500,
         'eval_frequency': 10,
         'eval_episodes': 5,
 
@@ -73,7 +56,7 @@ def run_taxi_transfer_experiment():
                     'exploration_rate': 0.1,
                     'exploration_decay': 0.995
                 },
-                'source_episodes': 200,
+                'source_episodes': 500,
                 'mechanism_config': {
                     'type': 'parameter_transfer',
                     'transfer_weights': True,
@@ -94,11 +77,12 @@ def run_taxi_transfer_experiment():
                     'exploration_rate': 0.1,
                     'exploration_decay': 0.995
                 },
-                'source_episodes': 200,
+                'source_episodes': 500,
                 'mechanism_config': {
                     'type': 'value_transfer',
                     'transfer_type': 'q_values',
-                    'adaptation_method': 'normalized'
+                    'use_state_mapping': True,
+                    'adaptation_method': 'normalized',
                 }
             },
             {
@@ -115,7 +99,7 @@ def run_taxi_transfer_experiment():
                     'exploration_rate': 0.1,
                     'exploration_decay': 0.995
                 },
-                'source_episodes': 200,
+                'source_episodes': 500,
                 'mechanism_config': {
                     'type': 'reward_shaping',
                     'shaping_method': 'potential_based',
@@ -346,7 +330,7 @@ def main():
     
     # Run Taxi experiments
     taxi_results = run_taxi_transfer_experiment()
-    
+    print("\nTaxi experiment results:", taxi_results)
     # Run Ant experiments
     # Note: This might require more computational resources
     ant_results = run_ant_transfer_experiment()

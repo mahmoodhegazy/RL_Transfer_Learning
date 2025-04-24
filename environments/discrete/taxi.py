@@ -23,14 +23,14 @@ class TaxiEnv(BaseEnvironment):
         self.num_passengers = config.get("num_passengers", 1)
         self.max_fuel = config.get("max_fuel", float('inf'))  # Infinite by default
         self.stochasticity = config.get("stochasticity", 0.0)  # Deterministic by default
-        
+        self.use_fixed_locations = config.get("use_fixed_locations", False)
+
         # Define the grid world
         self.grid = np.zeros((self.grid_size, self.grid_size), dtype=int)
         
         # Generate passenger locations and destinations
         self.passenger_locations = []
         self.destination_locations = []
-        self._generate_locations()
         
         # Define action space (North, South, East, West, Pickup, Dropoff)
         self.action_space = spaces.Discrete(6)
@@ -43,7 +43,9 @@ class TaxiEnv(BaseEnvironment):
             self.grid_size,                      # taxi row
             self.grid_size,                      # taxi col
             *([3] * self.num_passengers),        # passenger status
-            *([self.grid_size * self.grid_size] * self.num_passengers)  # destination locations
+            *([self.grid_size * self.grid_size] * self.num_passengers) , # destination locations
+            self.grid_size,                      # passenger row
+            self.grid_size,                      # passenger col
         ])
         
         # Initialize state
@@ -57,40 +59,48 @@ class TaxiEnv(BaseEnvironment):
         self.dropoff_reward = config.get("dropoff_reward", 20)
         self.fuel_penalty = config.get("fuel_penalty", -10)  # Penalty for running out of fuel
         self.illegal_action_penalty = config.get("illegal_action_penalty", -10)
-        
+
     def _generate_locations(self):
-        """Generate random passenger pickup and destination locations."""
-        all_locations = [(i, j) for i in range(self.grid_size) for j in range(self.grid_size)]
-        sampled_locations = np.random.choice(
-            len(all_locations), 
-            size=2 * self.num_passengers, 
-            replace=False
-        )
+        """Generate passenger pickup and destination locations from corner locations."""
+        # Define corner locations
+        corner_locations = [
+            (0, 0),          # Top-left
+            (0, self.grid_size-1),    # Top-right
+            (self.grid_size-1, 0),    # Bottom-left
+            (self.grid_size-1, self.grid_size-1)  # Bottom-right
+        ]
         
-        for i in range(self.num_passengers):
-            self.passenger_locations.append(all_locations[sampled_locations[i]])
-            self.destination_locations.append(all_locations[sampled_locations[i + self.num_passengers]])
-    
+        # Clear previous locations
+        self.passenger_locations = []
+        self.destination_locations = []
+        
+        if self.use_fixed_locations:
+            pickup_idx = 0
+            dropoff_idx = 3
+        else:
+            # Randomly select pickup and dropoff locations from corners
+            pickup_idx = np.random.randint(len(corner_locations))
+            dropoff_idx = np.random.randint(len(corner_locations))
+        self.passenger_locations = corner_locations[pickup_idx]
+        self.destination_locations = corner_locations[dropoff_idx]
+
     def reset(self):
         """Reset the environment to initial state."""
-        # Reset passenger locations and destinations
-        self._generate_locations()
-        
         # Reset taxi to random position
         taxi_row = np.random.randint(0, self.grid_size)
         taxi_col = np.random.randint(0, self.grid_size)
         
-        # Initialize passenger statuses (not picked up)
-        passenger_statuses = [-1] * self.num_passengers
+        self._generate_locations()
         
-        # Flatten destination locations
-        flat_destinations = [loc[0] * self.grid_size + loc[1] for loc in self.destination_locations]
+        # Initialize passenger status (not picked up)
+        passenger_status = -1
         
-        # Combine into state
-        self.state = [taxi_row, taxi_col] + passenger_statuses + flat_destinations
+        # Convert destination location to flattened index, 
+        dest_row, dest_col = self.destination_locations
+        dest_idx = dest_row * self.grid_size + dest_col
         
-        # Reset fuel if using fuel constraints
-        self.remaining_fuel = self.max_fuel
+        # Correct state format: [taxi_row, taxi_col, passenger_status, dest_idx]
+        self.state = [taxi_row, taxi_col, passenger_status, dest_idx, self.passenger_locations[0], self.passenger_locations[1]]
         
         # Reset done flag
         self.done = False
@@ -100,6 +110,12 @@ class TaxiEnv(BaseEnvironment):
     def step(self, action):
         """Take a step in the environment with the given action."""
         taxi_row, taxi_col = self.state[0], self.state[1]
+        passenger_status = self.state[2]
+        dest_idx = self.state[3]
+        
+        # Convert destination index back to coordinates
+        dest_row, dest_col = dest_idx // self.grid_size, dest_idx % self.grid_size
+ 
         
         # Apply stochasticity if configured
         if np.random.random() < self.stochasticity:
@@ -118,27 +134,17 @@ class TaxiEnv(BaseEnvironment):
         elif action == 3:  # West
             taxi_col = max(0, taxi_col - 1)
         elif action == 4:  # Pickup
-            passenger_idx = self._passenger_at_location(taxi_row, taxi_col)
-            if passenger_idx is not None and self.state[2 + passenger_idx] == -1:
-                # Passenger found and not yet picked up
-                self.state[2 + passenger_idx] = 0  # In taxi
+            if (taxi_row, taxi_col) == tuple(self.state[-2:]) and passenger_status == -1:
+                self.state[2] = 0
             else:
-                reward = self.illegal_action_penalty  # Illegal pickup
-        elif action == 5:  # Dropoff
-            for i in range(self.num_passengers):
-                passenger_status = self.state[2 + i]
-                dest_idx = self.state[2 + self.num_passengers + i]
-                dest_row, dest_col = dest_idx // self.grid_size, dest_idx % self.grid_size
-                
-                if passenger_status == 0 and taxi_row == dest_row and taxi_col == dest_col:
-                    # Passenger in taxi and at destination
-                    self.state[2 + i] = 1  # Delivered
-                    reward = self.dropoff_reward
-                    break
-            else:
-                # No valid dropoff occurred
                 reward = self.illegal_action_penalty
-        
+        elif action == 5:  # Dropoff
+            if passenger_status == 0 and taxi_row == dest_row and taxi_col == dest_col:
+                self.state[2] = 1  # Delivered
+                reward = self.dropoff_reward
+            else:
+                reward = self.illegal_action_penalty
+  
         # Update taxi position
         self.state[0], self.state[1] = taxi_row, taxi_col
         
@@ -161,36 +167,39 @@ class TaxiEnv(BaseEnvironment):
     def _get_obs(self):
         """Convert internal state to observation."""
         return np.array(self.state)
-    
+        
     def get_state_representation(self):
         """Get state representation suitable for transfer learning."""
-        # Normalize positions to [0,1] range
+        # Normalize positions
         taxi_row_norm = self.state[0] / (self.grid_size - 1)
         taxi_col_norm = self.state[1] / (self.grid_size - 1)
         
-        # Passenger statuses (one-hot encoded)
-        passenger_status_vectors = []
-        for i in range(self.num_passengers):
-            status = self.state[2 + i]
-            status_vector = [0, 0, 0]  # [not picked, in taxi, delivered]
-            status_vector[status + 1] = 1
-            passenger_status_vectors.extend(status_vector)
+        # Passenger status (one-hot encoded)
+        status = self.state[2]
+        status_vector = [0, 0, 0]  # [not picked, in taxi, delivered]
+        status_vector[status + 1] = 1
         
-        # Destination locations (normalized)
-        destination_vectors = []
-        for i in range(self.num_passengers):
-            dest_idx = self.state[2 + self.num_passengers + i]
-            dest_row, dest_col = dest_idx // self.grid_size, dest_idx % self.grid_size
-            dest_row_norm = dest_row / (self.grid_size - 1)
-            dest_col_norm = dest_col / (self.grid_size - 1)
-            destination_vectors.extend([dest_row_norm, dest_col_norm])
+        # Destination location (normalized)
+        dest_idx = self.state[3]
+        dest_row, dest_col = dest_idx // self.grid_size, dest_idx % self.grid_size
+        dest_row_norm = dest_row / (self.grid_size - 1)
+        dest_col_norm = dest_col / (self.grid_size - 1)
+        
+        # Passenger location (normalized)
+        passenger_row_norm = self.state[-2] / (self.grid_size - 1)
+        passenger_col_norm = self.state[-1] / (self.grid_size - 1)
         
         # Combine all features
-        return np.array([taxi_row_norm, taxi_col_norm] + passenger_status_vectors + destination_vectors)
-    
+        return np.array([
+            taxi_row_norm, taxi_col_norm,          # Taxi position
+            *status_vector,                        # Passenger status
+            dest_row_norm, dest_col_norm,          # Destination location
+            passenger_row_norm, passenger_col_norm  # Passenger location
+        ])
+
     def _passenger_at_location(self, row, col):
         """Check if any passenger is at the given location."""
-        for i, loc in enumerate(self.passenger_locations):
+        for i, loc in enumerate([self.passenger_locations]):
             if loc[0] == row and loc[1] == col and self.state[2 + i] == -1:
                 return i
         return None
@@ -204,11 +213,14 @@ class TaxiEnv(BaseEnvironment):
         if current < 0.3 and target >= 0.3:
             # Increase grid size
             self.grid_size += 1
+            self.grid = np.zeros((self.grid_size, self.grid_size), dtype=int)  # Add this line
             self.observation_space = spaces.MultiDiscrete([
                 self.grid_size,                      # taxi row
                 self.grid_size,                      # taxi col
                 *([3] * self.num_passengers),        # passenger status
-                *([self.grid_size * self.grid_size] * self.num_passengers)  # destination locations
+                *([self.grid_size * self.grid_size] * self.num_passengers),  # destination locations
+                self.grid_size,                      # passenger row (not in original definition)
+                self.grid_size
             ])
         
         if current < 0.5 and target >= 0.5:

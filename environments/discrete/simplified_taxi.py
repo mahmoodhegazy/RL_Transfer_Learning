@@ -22,8 +22,8 @@ class SimplifiedTaxiEnv(TaxiEnv):
         
         # Fixed pickup/dropoff locations if specified
         self.use_fixed_locations = simplified_config.get("use_fixed_locations", False)
-        self.fixed_passenger_locations = simplified_config.get("fixed_passenger_locations", [(0, 0)])
-        self.fixed_destination_locations = simplified_config.get("fixed_destination_locations", [(2, 2)])
+        self.fixed_passenger_locations = simplified_config.get("fixed_passenger_locations", (0, 0))
+        self.fixed_destination_locations = simplified_config.get("fixed_destination_locations", (2, 2))
         
         super().__init__(simplified_config)
     
@@ -31,8 +31,8 @@ class SimplifiedTaxiEnv(TaxiEnv):
         """Generate passenger pickup and destination locations."""
         if self.use_fixed_locations:
             # Use fixed locations
-            self.passenger_locations = self.fixed_passenger_locations[:self.num_passengers]
-            self.destination_locations = self.fixed_destination_locations[:self.num_passengers]
+            self.passenger_locations = self.fixed_passenger_locations
+            self.destination_locations = self.fixed_destination_locations
         else:
             # Use random but simplified locations (e.g., corners only)
             super()._generate_locations()
