@@ -42,7 +42,14 @@ class QLearningAgent(BaseAgent):
             # Discretize the state to use as a key in the dictionary-based Q-table
             if isinstance(state, np.ndarray):
                 # Discretize each dimension
-                discretized = tuple(state)
+                try:
+                    discretized = tuple(np.digitize(
+                        s, np.linspace(low, high, self.discretization_bins)
+                    ) for s, (low, high) in zip(state, zip(
+                        self.observation_space.low, self.observation_space.high
+                    )))
+                except Exception as e:
+                    discretized = tuple(state)
                 return discretized
             else:
                 return state
