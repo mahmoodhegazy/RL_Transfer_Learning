@@ -10,23 +10,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-# Import environment creators
-# from environments.discrete.simplified_taxi import SimplifiedTaxiEnv
-# from environments.discrete.taxi import TaxiEnv
-# from environments.continuous.reduced_dof_ant import ReducedDOFAntEnv
-# from environments.continuous.ant import AntEnv
-
-# # Import agent types
-# from agents.discrete.q_learning import QLearningAgent
-# from agents.continuous.actor_critic import ActorCriticAgent
-
-# # Import transfer mechanisms
-# from transfer.mechanisms.parameter_transfer import ParameterTransfer
-# from transfer.mechanisms.feature_transfer import FeatureTransfer
-# # from transfer.mechanisms.policy_distillation import PolicyDistillation
-# from transfer.mechanisms.reward_shaping import RewardShaping
-# from transfer.mechanisms.value_transfer import ValueTransfer
-
 # Import experiment utilities
 from experiments.run_experiment import ExperimentRunner
 
@@ -45,8 +28,7 @@ def run_taxi_transfer_experiment():
         'target_env_config': {
             'type': 'taxi',
             'grid_size': 5,
-            'num_passengers': 1,
-            # 'use_fixed_locations': True
+            'num_passengers': 1
         },
 
         # Agent configuration
@@ -86,8 +68,7 @@ def run_taxi_transfer_experiment():
                 'source_env_config': {
                     'type': 'simplified_taxi',
                     'grid_size': 3,
-                    'num_passengers': 1,
-                    # 'use_fixed_locations': True
+                    'num_passengers': 1
                 },
                 'source_agent_config': {
                     'type': 'q_learning',
@@ -352,10 +333,10 @@ def main():
     print("\nTaxi experiment results:", taxi_results)
     # Run Ant experiments
     # Note: This might require more computational resources
-    # ant_results = run_ant_transfer_experiment()
+    ant_results = run_ant_transfer_experiment()
     
     # Compare results
-    compare_transfer_mechanisms(taxi_results)
+    compare_transfer_mechanisms(taxi_results, ant_results)
     
     print("\nAll experiments completed successfully!")
 

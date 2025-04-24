@@ -146,18 +146,7 @@ class ExperimentRunner:
             # Log progress
             if episode % 10 == 0:
                 # Calculate average reward over last 10 episodes
-                last_10_avg = np.mean(results['episode_rewards'][-10:]) if len(results['episode_rewards']) >= 10 else np.mean(results['episode_rewards'])
-                print(f"Episode {episode}/{num_episodes}, Average Reward (last 10): {last_10_avg:.2f}")
-        # Plot results for this training session
-        plt.figure(figsize=(10, 6))
-        episodes = range(1, len(results['episode_rewards']) + 1)
-        plt.plot(episodes, results['episode_rewards'], label='Episode Rewards')
-        plt.xlabel('Episode')
-        plt.ylabel('Reward')
-        plt.title('Training Progress')
-        plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend()
-        plt.show()
+                print(f"Episode {episode}/{num_episodes}, Reward: {episode_reward:.2f}")
         return results
     
     def _evaluate_agent(self, agent, env, num_episodes):
@@ -171,7 +160,6 @@ class ExperimentRunner:
             state = env.reset() if not isinstance(env.reset(), tuple) else env.reset()[0]
             done = False
             episode_reward = 0
-            steps = 0
             
             while not done:
                 action = agent.select_action(state)
@@ -186,9 +174,8 @@ class ExperimentRunner:
                     next_state, reward, done, _ = env.step(action)
                     
                 episode_reward += reward
-                steps += 1
 
-                done = terminated or truncated or steps >= 700
+                done = terminated or truncated
                 
             total_rewards.append(episode_reward)
         
@@ -399,9 +386,9 @@ class ExperimentRunner:
         elif mechanism_type == 'feature_transfer':
             from transfer.mechanisms.feature_transfer import FeatureTransfer
             return FeatureTransfer(mechanism_config)
-        # elif mechanism_type == 'policy_distillation':
-        #     from transfer.mechanisms.policy_distillation import FeatureTransfer
-        #     return FeatureTransfer(mechanism_config)
+        elif mechanism_type == 'policy_distillation':
+            from transfer.mechanisms.policy_distillation import PolicyDistillation
+            return PolicyDistillation(mechanism_config)
         elif mechanism_type == 'value_transfer':
             from transfer.mechanisms.value_transfer import ValueTransfer
             return ValueTransfer(mechanism_config)
