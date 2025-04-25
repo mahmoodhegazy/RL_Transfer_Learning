@@ -2,11 +2,16 @@
 
 This project investigates transfer learning strategies in reinforcement learning across two domains of varying complexity: the discrete Taxi domain and the continuous Ant locomotion domain. We implement and compare parameter transfer, feature transfer, policy distillation, progressive curricula, and more, using structured environments and reproducible baselines.
 
-## 👥 Team Members
+## 👥 Team Members (Group 22)
 
 - Nadine El-Mufti — 260873899  
 - Mahmoud Hegazy — 260580124  
 - Aly Mohamed — 260902616
+
+## 👩🏻‍🏫👨🏻‍🏫 Prepared For
+
+- Dr. Doina Precup
+- Dr. Isabeau Prémont-Schwarz 
 
 ---
 
